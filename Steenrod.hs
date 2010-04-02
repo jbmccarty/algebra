@@ -1,7 +1,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 
-module Steenrod(Basis(), Steenrod, excess, AModule(..), sq) where
+module Steenrod(Basis(), Steenrod, excess, sq) where
 import Z2
 import Util
 import Algebra
@@ -71,33 +73,34 @@ instance Multiplicative Z2 Basis where
   one = map (first Basis) one'
   mul (Basis x) (Basis y) = map (first Basis) $ mul' x y
 
-class AModule b where
-  sq' :: Integer -> b -> [b]
+-- A convenient way to define/use an A-module
+-- Note: any A-module is free over Z/2
+class Free Z2 m b => AModule m b where
+  -- since sq' could be called by anyone, implementors should check that the
+  -- integer argument is positive
+  sq' :: Integer -> b -> m
 
--- If b is Graded, sq' n should raise degree by n
+sq :: AModule m b => Integer -> m -> m
+sq = free . sq'
 
-sq :: (Ord b, AModule b) => Integer -> FreeModule Z2 b -> FreeModule Z2 b
-sq n x = case compare n 0 of
-  LT -> zero
-  EQ -> x
-  GT -> x R.>>= (foldl' (.+.) zero . map R.return . sq' n)
+instance AModule m b => Module Steenrod m where
+  r .* x = free (foldr sq x . unBasis) r
+  
+instance AModule Steenrod (Basis) where
+  sq' r x = case compare r 0 of
+    GT -> inject (Basis [r]) * inject x
+    EQ -> inject x
+    LT -> 0
 
 -- Steenrod squares with lower indices
-sq'_ :: (Graded b, AModule b) => Integer -> b -> [b]
-sq'_ n x = sq' (n + degree x) x
-
--- sq_ :: (Ord b, Graded b, AModule b) => Integer -> FreeModule Z2 b
---   -> FreeModule Z2 b
-
-instance AModule Basis where
-  sq' r (Basis x) = map Basis . normalize $ r:x
+sq_ :: (AModule m b, Graded b) => Integer -> m -> m
+sq_ n x = free (\b -> sq' (n + degree b) b) x
 
 -- The diagonal action on the tensor algebra
-square :: AModule b => Integer -> [b] -> [[b]]
-square n [] | n == 0    = [[]]
-            | otherwise = [] -- Sq^n 1 = 0 if n /= 0
-square n (x:xs) = concat [ prod (sq' t x) (square (n-t) xs) | t <- [0..n] ]
-  where prod = liftM2 (:)
+square :: AModule m b => Integer -> [b] -> T.TensorAlgebra Z2 b
+square n [] | n == 0    = 1
+            | otherwise = 0 -- Sq^n 1 = 0 if n /= 0
+square n (x:xs) = sum [ sq' t x * square (n-t) xs | t <- [0..n] ]
 
-instance AModule b => AModule (T.Basis b) where
-  sq' n = map T.Basis . square n . T.unBasis
+instance AModule m b => AModule (T.TensorAlgebra Z2 b) (T.Basis b) where
+  sq' n = square n . T.unBasis

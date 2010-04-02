@@ -3,3 +3,4 @@ make a FreeModule typeclass and put fmap/return/bind there
 make AModule use that?
 implement grading of various rings
 spectral sequence!
+TensorAlgebra is really a free algebra, not the tensor algebra of a given module

@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module TensorAlgebra(module Algebra, TensorAlgebra()) where
+module TensorAlgebra(module Algebra, TensorAlgebra(), Basis(..)) where
 import Algebra
 import qualified Restricted as R
 import Data.List(intercalate)
@@ -33,7 +33,7 @@ instance (Num r, Show b) => Show (TensorAlgebra r b) where
   show = show . unpack
 
 instance (Num r, Ord b) => Module r (TensorAlgebra r b) where
-  r ! x = lift (r!) $ x
+  r .* x = lift (r .*) $ x
 
 instance (Num r, Ord b') => R.Functor (TensorAlgebra r) b b' where
   fmap = lift . R.fmap . fmap
@@ -41,4 +41,4 @@ instance (Num r, Ord b') => R.Functor (TensorAlgebra r) b b' where
 instance Num r => R.MonadR (TensorAlgebra r) b where
   return = pack . R.return . return
 
--- too lazy to implement bind...
+-- too lazy to implement bind or free...

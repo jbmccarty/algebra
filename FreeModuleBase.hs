@@ -2,6 +2,7 @@
 module FreeModuleBase where
 import qualified Data.Map as M
 import Data.List(foldl', intercalate)
+import Module
 
 -- A free r-module with basis b
 type FM r b = M.Map b r
@@ -22,12 +23,13 @@ addFM x y = canonicalizeFM $ M.unionWith (+) x y
 zeroFM :: FM r b
 zeroFM = M.empty
 
+-- negation
 negateFM :: Num r => FM r b -> FM r b
 negateFM = M.map negate
 
 -- the action of r on the module
 actFM :: (Ord b, Num r) => r -> FM r b -> FM r b
-actFM r x = canonicalizeFM . M.map (r*) $ x
+actFM r = canonicalizeFM . M.map (r*)
 
 -- FM is a (restricted) functor on the basis type
 fmapFM :: (Num r, Ord b') => (b -> b') -> FM r b -> FM r b'
@@ -37,7 +39,12 @@ fmapFM f = canonicalizeFM . M.mapKeysWith (+) f
 returnFM :: Num r => b -> FM r b
 returnFM x = M.singleton x 1
 
-bindFM :: (Num r, Ord b') => (b -> FM r b') -> FM r b -> FM r b'
-bindFM f x = foldl' addFM zeroFM [ actFM a $ f b | (b, a) <- M.toList x ]
--- This could probably be done using Map operations, but r would have to be
--- ordered
+bindFM :: (Num r, Ord b') => FM r b -> (b -> FM r b') -> FM r b'
+bindFM x f = foldl' addFM zeroFM [ actFM a $ f b | (b, a) <- M.toList x ]
+
+-- FM r b is a free r-module
+injectFM :: Num r => b -> FM r b
+injectFM = returnFM
+
+freeFM :: Module r m => (b -> m) -> FM r b -> m
+freeFM f x = foldl' (.+.) zero [ a .* f b | (b, a) <- M.toList x ]

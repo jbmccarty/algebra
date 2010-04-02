@@ -50,7 +50,7 @@ instance (Num r, Show b) => Show (SymmetricAlgebra r b) where
   show = show . unpack'
 
 instance (Num r, Ord b) => Module r (SymmetricAlgebra r b) where
-  r ! x = lift' (r!) $ x
+  r .* x = lift' (r .*) $ x
 
 instance (Num r, Ord b') => R.Functor (SymmetricAlgebra r) b b' where
   fmap = lift' . R.fmap . lift . fmapFM
@@ -58,4 +58,4 @@ instance (Num r, Ord b') => R.Functor (SymmetricAlgebra r) b b' where
 instance Num r => R.MonadR (SymmetricAlgebra r) b where
   return = pack' . R.return . pack . returnFM
 
--- too lazy to implement bind...
+-- too lazy to implement bind or free...

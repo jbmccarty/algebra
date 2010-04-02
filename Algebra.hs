@@ -1,7 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
---{-# LANGUAGE FlexibleInstances #-}
---{-# LANGUAGE OverlappingInstances #-}
 
 -- rings which are free modules over some other ring
 module Algebra(module FreeModule, Multiplicative(..)) where
@@ -20,7 +18,7 @@ class Multiplicative r b where
 -- need to use scoped type variables to make ghc resolve the right class
 fromInteger' :: forall r b. (Num r, Ord b, Multiplicative r b) =>
   Integer -> FreeModule r b
-fromInteger' n = (fromInteger n :: r) ! returnList one
+fromInteger' n = (fromInteger n :: r) .* returnList one
 
 -- the ring structure induced by multiplication on the basis
 instance (Num r, Show b, Ord b, Multiplicative r b) => Num (FreeModule r b)

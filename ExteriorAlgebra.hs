@@ -64,7 +64,7 @@ instance (Num r, Show b) => Show (ExteriorAlgebra r b) where
   show = show . unpack'
 
 instance (Num r, Ord b) => Module r (ExteriorAlgebra r b) where
-  r ! x = lift' (r!) $ x
+  r .* x = lift' (r .*) $ x
 
 instance (Num r, Ord b') => R.Functor (ExteriorAlgebra r) b b' where
   fmap f = lift' (R.>>= returnList . normalize' . map f . unpack)
@@ -72,4 +72,4 @@ instance (Num r, Ord b') => R.Functor (ExteriorAlgebra r) b b' where
 instance Num r => R.MonadR (ExteriorAlgebra r) b where
   return = pack' . R.return . pack . return
 
--- too lazy to implement bind...
+-- too lazy to implement bind or free...

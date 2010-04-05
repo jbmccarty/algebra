@@ -3,12 +3,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module Steenrod(Basis(), Steenrod, excess, sq) where
+module Steenrod(Steenrod, SteenrodBasis, excess, sq, AModule(..), sq_) where
 import Z2
 import Util
 import Algebra
 import qualified Restricted as R
-import qualified TensorAlgebra as T
+import TensorAlgebra
 import Data.List(partition, foldl')
 import Control.Arrow(first)
 import Control.Monad(liftM2)
@@ -65,6 +65,8 @@ unpack = unBasis
 lift f = pack . f . unpack
 lift2 f x y = pack $ f (unpack x) (unpack y)
 
+type SteenrodBasis = Basis
+
 -- This could be constructed as a quotient of a tensor algebra, but it seems
 -- like more trouble than it's worth
 type Steenrod = FreeModule Z2 Basis
@@ -108,10 +110,10 @@ sq_ :: (Ord b, AModule b, Graded b)
 sq_ n = freeM (\b -> sq' (n + degree b) b)
 
 -- The diagonal action on the tensor algebra
-square :: (Ord b, Show b, AModule b) => Integer -> [b] -> T.TensorAlgebra Z2 b
+square :: (Ord b, Show b, AModule b) => Integer -> [b] -> TensorAlgebra Z2 b
 square n [] | n == 0    = 1
             | otherwise = 0 -- Sq^n 1 = 0 if n /= 0
 square n (x:xs) = sum [ include (sq' t x) * square (n-t) xs | t <- [0..n] ]
 
-instance (Ord b, Show b, AModule b) => AModule (T.Basis b) where
-  sq' n = square n . T.unBasis
+instance (Ord b, Show b, AModule b) => AModule (TensorAlgebraBasis b) where
+  sq' n = square n . unpackTAB

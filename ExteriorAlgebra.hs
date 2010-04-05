@@ -7,6 +7,10 @@ import Algebra
 import Z2
 import qualified Restricted as R
 import qualified Data.Map as M
+import Basis
+
+-- The exterior algebra could be implemented as a quotient of the tensor
+-- algebra, but I would prefer to have a canonical basis.
 
 -- should always be sorted and include no duplicates
 newtype Basis b = Basis { unBasis :: [b] } deriving (Eq, Ord, Functor, Monad)
@@ -53,23 +57,12 @@ instance (Num r, Ord b) => Multiplicative r (Basis b) where
   one = [(pack [], 1)]
   mul x y = normalize' $ unpack x ++ unpack y
 
-newtype ExteriorAlgebra r b = EA { unEA :: FreeModule r (Basis b) }
-  deriving (Eq, Ord, AbelianGroup, Num)
+type ExteriorAlgebra r b = FreeModule r (Basis b)
 
-pack' = EA
-unpack' = unEA
-lift' f = EA . f . unEA
+instance Ord b' => BasisFunctor Basis b b' where
+  fmapB' f = returnList . normalize' . unpack . fmap f
 
-instance (Num r, Show b) => Show (ExteriorAlgebra r b) where
-  show = show . unpack'
+instance (Ord b', Show b') => BasisMonad Basis b b' where
+  bindB' f = product . map f . unpack
 
-instance (Num r, Ord b) => Module r (ExteriorAlgebra r b) where
-  r .* x = lift' (r .*) $ x
-
-instance (Num r, Ord b') => R.Functor (ExteriorAlgebra r) b b' where
-  fmap f = lift' (R.>>= returnList . normalize' . map f . unpack)
-
-instance Num r => R.MonadR (ExteriorAlgebra r) b where
-  return = pack' . R.return . pack . return
-
--- too lazy to implement bind or free...
+-- ExteriorAlgebra r b is a free exterior r-algebra

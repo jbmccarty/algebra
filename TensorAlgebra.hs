@@ -2,43 +2,40 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module TensorAlgebra(module Algebra, TensorAlgebra(), Basis(..)) where
+module TensorAlgebra(module Algebra, TensorAlgebra(), Basis(..), freeTA) where
 import Algebra
 import qualified Restricted as R
 import Data.List(intercalate)
 import Grading
+import Basis
 
 newtype Basis b = Basis { unBasis :: [b] } deriving (Eq, Ord, Functor, Monad)
+
+pack = Basis
+unpack = unBasis
+lift f = pack . f . unpack
+lift2 f x y = pack $ f (unpack x) (unpack y)
 
 instance Show b => Show (Basis b) where
   show (Basis []) = "1"
   show (Basis xs) = intercalate " \\otimes " . map show $ xs
 
 instance Num r => Multiplicative r (Basis b) where
-  one = [(Basis [], 1)]
-  mul (Basis xs) (Basis ys) = [(Basis $ xs ++ ys, 1)]
+  one = [(pack [], 1)]
+  mul xs ys = [(lift2 (++) xs ys, 1)]
 
 instance Graded b => Graded (Basis b) where
-  degree = sum . map degree . unBasis
+  degree = sum . map degree . unpack
   grading = undefined -- too lazy to implement just now
 
-newtype TensorAlgebra r b = TA { unTA :: FreeModule r (Basis b) }
-  deriving (Eq, Ord, AbelianGroup, Num)
+type TensorAlgebra r b = FreeModule r (Basis b)
 
-pack = TA
-unpack = unTA
-lift f = TA . f . unTA
+instance Ord b' => BasisFunctor Basis b b' where
+  fmapB' f = inject . fmap f
 
-instance (Num r, Show b) => Show (TensorAlgebra r b) where
-  show = show . unpack
+instance (Ord b', Show b') => BasisMonad Basis b b' where
+  bindB' f = product . map f . unpack
 
-instance (Num r, Ord b) => Module r (TensorAlgebra r b) where
-  r .* x = lift (r .*) $ x
-
-instance (Num r, Ord b') => R.Functor (TensorAlgebra r) b b' where
-  fmap = lift . R.fmap . fmap
-
-instance Num r => R.MonadR (TensorAlgebra r) b where
-  return = pack . R.return . return
-
--- too lazy to implement bind or free...
+-- TensorAlgebra r b is a free r-algebra
+freeTA :: (Module r m, Num m) => (b -> m) -> TensorAlgebra r b -> m
+freeTA f = freeM (product . map f . unpack)

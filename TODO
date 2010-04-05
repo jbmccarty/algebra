@@ -1,6 +1,4 @@
-version control
-make a FreeModule typeclass and put fmap/return/bind there
-make AModule use that?
+make a Ring typeclass...Num is just too dumb; remove Show where unnecessary
 implement grading of various rings
 spectral sequence!
 TensorAlgebra is really a free algebra, not the tensor algebra of a given module

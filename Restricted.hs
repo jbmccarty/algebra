@@ -26,3 +26,4 @@ instance P.Monad m => MonadR m a where
 
 instance P.Monad m => Monad m a b where
   (>>=) = (P.>>=)
+  (>>) = (P.>>)

@@ -7,6 +7,10 @@ import FreeModuleBase
 import Algebra
 import qualified Restricted as R
 import qualified Data.Map as M
+import Basis
+
+-- The symmetric algebra could be implemented as a quotient of the tensor
+-- algebra, but I would prefer to have a canonical basis.
 
 -- should include only positive powers
 -- This is isomorphic to FreeModule Integer b, but I need access to the
@@ -39,23 +43,13 @@ instance (Num r, Ord b) => Multiplicative r (Basis b) where
   one = [(pack zeroFM, 1)]
   mul x y = [(lift2 addFM x y, 1)]
 
-newtype SymmetricAlgebra r b = SA { unSA :: FreeModule r (Basis b) }
-  deriving (Eq, Ord, AbelianGroup, Num)
+type SymmetricAlgebra r b = FreeModule r (Basis b)
 
-pack' = SA
-unpack' = unSA
-lift' f = SA . f . unSA
+instance Ord b' => BasisFunctor Basis b b' where
+  fmapB' f = inject . R.fmap f
 
-instance (Num r, Show b) => Show (SymmetricAlgebra r b) where
-  show = show . unpack'
+instance (Ord b', Show b') => BasisMonad Basis b b' where
+  bindB' f = product . map f' . M.toList . unpack where
+    f' (x, n) = (f x)^n
 
-instance (Num r, Ord b) => Module r (SymmetricAlgebra r b) where
-  r .* x = lift' (r .*) $ x
-
-instance (Num r, Ord b') => R.Functor (SymmetricAlgebra r) b b' where
-  fmap = lift' . R.fmap . lift . fmapFM
-
-instance Num r => R.MonadR (SymmetricAlgebra r) b where
-  return = pack' . R.return . pack . returnFM
-
--- too lazy to implement bind or free...
+-- SymmetricAlgebra r b is a free commutative r-algebra

@@ -4,7 +4,7 @@
 module KZ2(KZ2(), iota) where
 import Steenrod
 import Algebra
-import TensorAlgebra
+import SymmetricAlgebra
 import Z2
 import qualified Restricted as R
 import Data.TypeLevel(Nat, toNum)
@@ -25,7 +25,7 @@ instance Nat n => AModule (KZ2B n) where
     filterExcess b = if excess b < n' then inject $ KZ2B b else zero
     n' = toNum (undefined :: n)
 
-type KZ2 n = TensorAlgebra Z2 (KZ2B n)
+type KZ2 n = SymmetricAlgebra Z2 (KZ2B n)
 
 iota :: Nat n => n -> KZ2 n
 iota _ = 1 R.>>= (injectB . KZ2B)

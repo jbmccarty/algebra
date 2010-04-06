@@ -1,9 +1,10 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module TensorAlgebra(module Basis, TensorAlgebra, TensorAlgebraBasis,
-  freeTA) where
+  freeTA, diag) where
 import Algebra
 import qualified Restricted as R
 import Data.List(intercalate)
@@ -46,3 +47,13 @@ instance (Ord b', Show b') => BasisMonad Basis b b' where
 -- TensorAlgebra r b is a free r-algebra
 freeTA :: (Module r m, Num m) => (b -> m) -> TensorAlgebra r b -> m
 freeTA f = freeM (product . map f . unpack)
+
+-- The diagonal action on the tensor algebra and its quotients
+diag :: (Ord (f b), Show (f b), Multiplicative Z2 (f b), R.MonadR f b,
+  AModule b) => Integer -> [b] -> FreeModule Z2 (f b)
+diag n [] | n == 0    = 1
+          | otherwise = 0 -- Sq^n 1 = 0 if n /= 0
+diag n (x:xs) = sum [ include (sq' t x) * diag (n-t) xs | t <- [0..n] ]
+
+instance (Ord b, Show b, AModule b) => AModule (Basis b) where
+  sq' n = diag n . unpack

@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module SymmetricAlgebra(module Algebra, SymmetricAlgebra) where
+module SymmetricAlgebra(module Basis, SymmetricAlgebra) where
 import FreeModuleBase
 import Algebra
 import qualified Restricted as R

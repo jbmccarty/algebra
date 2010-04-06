@@ -2,13 +2,15 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module TensorAlgebra(module Algebra, TensorAlgebra, TensorAlgebraBasis,
-  packTAB, unpackTAB, freeTA) where
+module TensorAlgebra(module Basis, TensorAlgebra, TensorAlgebraBasis,
+  freeTA) where
 import Algebra
 import qualified Restricted as R
 import Data.List(intercalate)
 import Grading
 import Basis
+import Steenrod
+import Z2
 
 newtype Basis b = Basis { unBasis :: [b] } deriving (Eq, Ord, Functor, Monad)
 
@@ -20,8 +22,6 @@ lift2 f x y = pack $ f (unpack x) (unpack y)
 -- Some modules need to examine elementary tensors, but I don't want to pollute
 -- the namespace.
 type TensorAlgebraBasis b = Basis b
-packTAB = pack
-unpackTAB = unpack
 
 instance Show b => Show (Basis b) where
   show (Basis []) = "1"

@@ -8,7 +8,6 @@ import Z2
 import Util
 import Algebra
 import qualified Restricted as R
-import TensorAlgebra
 import Data.List(partition, foldl')
 import Control.Arrow(first)
 import Control.Monad(liftM2)

@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module KZ2(KZ2(), iota) where
+module KZ2(module Steenrod, KZ2(), iota) where
 import Steenrod
 import Algebra
 import SymmetricAlgebra

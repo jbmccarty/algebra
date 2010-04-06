@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module ExteriorAlgebra(module Algebra, ExteriorAlgebra) where
+module ExteriorAlgebra(module Basis, ExteriorAlgebra) where
 import Algebra
 import Z2
 import qualified Restricted as R

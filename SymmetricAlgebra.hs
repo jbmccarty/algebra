@@ -7,9 +7,10 @@ import FreeModuleBase
 import Algebra
 import qualified Restricted as R
 import qualified Data.Map as M
+import qualified Data.Set as S
+import Grading
 import Basis
 import Steenrod
-import Z2
 import Data.List(genericReplicate)
 import TensorAlgebra(diag)
 
@@ -30,7 +31,7 @@ showB :: Show b => FM Integer b -> String
 showB = s . M.toList where
   s [] = "1"
   s [x] = showTerm x
-  s (x:xs) = showTerm x ++ " " ++ s xs
+  s (x:xs) = showTerm x ++ " * " ++ s xs
   showTerm (x, 1) = show x
   showTerm (x, n) = show x ++ "^{" ++ show n ++ "}"
 
@@ -46,6 +47,19 @@ instance R.MonadR Basis b where
 instance (Num r, Ord b) => Multiplicative r (Basis b) where
   one = [(pack zeroFM, 1)]
   mul x y = [(lift2 addFM x y, 1)]
+
+instance (Ord b, Graded b) => Graded (Basis b) where
+  degree = sum . map (\(b, n) -> n*degree b) . M.toList . unpack
+  -- this is woefully inefficient, but a correct implementation is tricky
+  grading = S.fromList . map (pack . M.fromListWith (+)) . g [] where
+    g es n = case compare n 0 of
+      LT -> []
+      EQ -> [[]]
+      GT -> do
+        m <- [1..n]
+        b <- S.toList $ grading m
+        bs <- g es (n - m)
+        return $ (b, 1):bs
 
 type SymmetricAlgebra r b = FreeModule r (Basis b)
 

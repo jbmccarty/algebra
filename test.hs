@@ -8,6 +8,11 @@ import ExteriorAlgebra
 import Z2
 import qualified Restricted as R
 import Basis
+import Steenrod
+import KZ2
+import Natural
+import Grading
+import qualified Data.Set as S
 
 data Basis = A | B deriving (Eq, Ord, Show)
 
@@ -15,6 +20,10 @@ a = R.return A
 a' = injectB A
 b = R.return B
 b' = injectB B
+
+stuff :: Integer -> String -> String
+stuff n = useNatural f n where
+  f m = unlines . map (show . foldr sq (iota m) . map read . words) . lines
 
 main = do
   print (a .+. b .+. a :: FreeModule Integer Basis)
@@ -25,18 +34,10 @@ main = do
   print (a' + 3 * b' * (a' + b') :: SymmetricAlgebra Z2 Basis)
   print (a' + 3 * b' * (a' + b') :: ExteriorAlgebra Integer Basis)
   print (a' + 3 * b' * (a' + b') :: ExteriorAlgebra Z2 Basis)
+  print (grading 9 :: S.Set (UBasis Steenrod))
+  print $ sq 2 ((iota d6)^3)
+  print $ sq_ (-16) ((iota d6)^3)
 
-{-
-import Steenrod
-import KZ2
-import Natural
-
-stuff :: Integer -> String -> String
-stuff n = useNatural f n where
-  f m = unlines . map (show . foldr sq (iota m) . map read . words) . lines
-
-main = do
   l <- getLine
   let n = head . map read . words $ l
   interact (stuff n)
--}

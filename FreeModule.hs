@@ -1,8 +1,10 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- free modules over a ring, including multiplicative structures
-module FreeModule(module Module, FreeModule(), inject, freeM, returnList) where
+module FreeModule(module Module, FreeModule(), UBasis, inject, freeM, returnList)
+where
 import qualified Restricted as R
 import FreeModuleBase
 import Module
@@ -12,6 +14,10 @@ import Data.List(foldl')
 -- The user-visible type and associated functions
 
 newtype FreeModule r b = CFM { unCFM :: FM r b } deriving (Eq, Ord)
+
+-- The underlying basis of a free module
+type family UBasis a :: *
+type instance UBasis (FreeModule r b) = b
 
 pack = CFM
 unpack = unCFM

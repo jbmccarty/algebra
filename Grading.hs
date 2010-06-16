@@ -1,6 +1,7 @@
 module Grading(Graded(..)) where
 import qualified Data.Set as S
 
+-- Interface to a graded module.
 class Graded b where
   degree :: b -> Integer -- the degree of a basis element
   grading :: Integer -> S.Set b -- the set of all elements of a given degree

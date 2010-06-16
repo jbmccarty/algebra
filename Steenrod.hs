@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module Steenrod(Steenrod, SteenrodBasis, excess, sq, AModule(..), sq_) where
+module Steenrod(Steenrod, excess, sq, AModule(..), sq_) where
 import Z2
 import Util
 import Algebra
@@ -13,13 +13,13 @@ import Control.Arrow(first)
 import Control.Monad(liftM2)
 import Grading
 import Basis
+import qualified Data.Set as S
 
 -- include only admissible sequences
 type B = [Integer]
 
 showB :: B -> String
-showB [] = ""
-showB [n] = "Sq^{" ++ show n ++ "}"
+showB [] = "\\iota"
 showB (n:x) = "Sq^{" ++ show n ++ "} " ++ showB x
 
 admissible :: B -> Bool
@@ -27,6 +27,20 @@ admissible [] = True
 admissible [r] = r > 0
 admissible (r:sx@(s:_)) | r >= 2*s  = admissible sx
                         | otherwise = False
+
+topSquare :: B -> Integer
+topSquare [] = 0
+topSquare (r:_) = r
+
+degree' :: B -> Integer
+degree' = sum
+
+grading' :: Integer -> S.Set B
+grading' n = case compare n 0 of
+  LT -> S.empty
+  EQ -> S.singleton []
+  GT -> S.fromList [ i:x | j <- [0..n `div` 2], let i = n-j,
+                     x <- S.toList $ grading' j, i - 2*topSquare x >= 0 ]
 
 excess' :: B -> Integer
 excess' [] = 0
@@ -64,14 +78,16 @@ unpack = unBasis
 lift f = pack . f . unpack
 lift2 f x y = pack $ f (unpack x) (unpack y)
 
-type SteenrodBasis = Basis
-
 -- This could be constructed as a quotient of a tensor algebra, but it seems
 -- like more trouble than it's worth
 type Steenrod = FreeModule Z2 Basis
 
 instance Show Basis where
   show = showB . unpack
+
+instance Graded Basis where
+  degree = degree' . unpack
+  grading = S.map pack . grading'
 
 excess :: Basis -> Integer
 excess = excess' . unpack

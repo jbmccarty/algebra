@@ -8,6 +8,7 @@ module TensorAlgebra(module Basis, TensorAlgebra, TensorAlgebraBasis,
 import Algebra
 import qualified Restricted as R
 import Data.List(intercalate)
+import qualified Data.Set as S
 import Grading
 import Basis
 import Steenrod
@@ -32,9 +33,19 @@ instance Num r => Multiplicative r (Basis b) where
   one = [(pack [], 1)]
   mul xs ys = [(lift2 (++) xs ys, 1)]
 
-instance Graded b => Graded (Basis b) where
+-- For TensorAlgebra r b to have a computable grading, b must be
+-- positively-graded and finitary
+instance (Ord b, Graded b) => Graded (Basis b) where
   degree = sum . map degree . unpack
-  grading = undefined -- too lazy to implement just now
+  grading = S.fromList . map pack . g where
+    g n = case compare n 0 of
+      LT -> []
+      EQ -> [[]]
+      GT -> do
+        m <- [1..n]
+        b <- S.toList $ grading m
+        bs <- g (n - m)
+        return $ b:bs
 
 type TensorAlgebra r b = FreeModule r (Basis b)
 

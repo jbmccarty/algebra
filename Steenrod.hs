@@ -18,9 +18,11 @@ import qualified Data.Set as S
 -- include only admissible sequences
 type B = [Integer]
 
-showB :: B -> String
-showB [] = "\\iota"
-showB (n:x) = "Sq^{" ++ show n ++ "} " ++ showB x
+showsPrecB :: Int -> B -> ShowS
+showsPrecB p rs = showParen (p > prec && (not . null) rs)
+                  . foldr (.) (showString "\\iota") . map s $ rs
+  where s r = showString "Sq^{" . showsPrec 0 r . showString "} "
+        prec = 5
 
 admissible :: B -> Bool
 admissible [] = True
@@ -83,7 +85,7 @@ lift2 f x y = pack $ f (unpack x) (unpack y)
 type Steenrod = FreeModule Z2 Basis
 
 instance Show Basis where
-  show = showB . unpack
+  showsPrec p = showsPrecB p . unpack
 
 instance Graded Basis where
   degree = degree' . unpack

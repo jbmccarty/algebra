@@ -7,7 +7,7 @@ module TensorAlgebra(module Basis, TensorAlgebra, TensorAlgebraBasis,
   freeTA, diag) where
 import Algebra
 import qualified Restricted as R
-import Data.List(intercalate)
+import Data.List(intersperse)
 import qualified Data.Set as S
 import Grading
 import Basis
@@ -26,8 +26,12 @@ lift2 f x y = pack $ f (unpack x) (unpack y)
 type TensorAlgebraBasis b = Basis b
 
 instance Show b => Show (Basis b) where
-  show (Basis []) = "1"
-  show (Basis xs) = intercalate " \\otimes " . map show $ xs
+  showsPrec p (Basis []) = showString "1"
+  showsPrec p (Basis [b]) = showsPrec p b
+  showsPrec p (Basis bs) = showParen (p > prec) . foldr (.) id .
+                           intersperse (showString " \\otimes ") .
+                           map (showsPrec prec) $ bs
+    where prec = 6
 
 instance Num r => Multiplicative r (Basis b) where
   one = [(pack [], 1)]

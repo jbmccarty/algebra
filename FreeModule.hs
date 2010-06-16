@@ -25,7 +25,7 @@ lift f = pack . f . unpack
 lift2 f x y = pack $ f (unpack x) (unpack y)
 
 instance (Num r, Show b) => Show (FreeModule r b) where
-  show = showFM . unpack
+  showsPrec d = showsPrecFM d . unpack
 
 -- FreeModule r b is an abelian group
 instance (Num r, Ord b) => AbelianGroup (FreeModule r b) where

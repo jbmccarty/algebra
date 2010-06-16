@@ -11,7 +11,7 @@ import qualified Data.Set as S
 import Grading
 import Basis
 import Steenrod
-import Data.List(genericReplicate)
+import Data.List(genericReplicate, intersperse)
 import TensorAlgebra(diag)
 
 -- The symmetric algebra could be implemented as a quotient of the tensor
@@ -27,16 +27,19 @@ unpack = unBasis
 lift f = pack . f . unpack
 lift2 f x y = pack $ f (unpack x) (unpack y)
 
-showB :: Show b => FM Integer b -> String
-showB = s . M.toList where
-  s [] = "1"
-  s [x] = showTerm x
-  s (x:xs) = showTerm x ++ " * " ++ s xs
-  showTerm (x, 1) = show x
-  showTerm (x, n) = show x ++ "^{" ++ show n ++ "}"
+showsPrecB :: Show b => Int -> FM Integer b -> ShowS
+showsPrecB p = s p . M.toList where
+  s p [] = showString "1"
+  s p [b] = showsFactor p b
+  s p xs = showParen (p > prec) . foldr (.) id . intersperse (showString " * ")
+           . map (showsFactor prec) $ xs
+  showsFactor p (x, 1) = showsPrec p x
+  showsFactor p (x, n) = showParen (p > prec+1) $ showsPrec (prec+1) x
+                         . showString "^{" . showsPrec 0 n . showString "}"
+  prec = 7
 
 instance Show b => Show (Basis b) where
-  show = showB . unpack
+  showsPrec p = showsPrecB p . unpack
 
 instance Ord b' => R.Functor Basis b b' where
   fmap = lift . fmapFM

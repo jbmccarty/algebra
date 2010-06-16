@@ -1,17 +1,19 @@
 -- this is not intended to be used by user code
 module FreeModuleBase where
 import qualified Data.Map as M
-import Data.List(foldl', intercalate)
+import Data.List(foldl', intersperse)
 import Module
 
 -- A free r-module with basis b
 type FM r b = M.Map b r
 
-showFM :: (Num r, Show b) => FM r b -> String
-showFM x | M.null x  = "0"
-         | otherwise = intercalate " + "
-           [ (if r == 1 then "" else show r ++ " ") ++ show b
-             | (b, r) <- M.toList x ]
+showsPrecFM :: (Num r, Show b) => Int -> FM r b -> ShowS
+showsPrecFM p x | M.null x  = showString "0"
+                | otherwise =
+  showParen (p > prec) . foldr (.) id . intersperse (showString " + ") $
+    [ (if r == 1 then id else showsPrec 6 r . showString " ") . showsPrec 6 b
+      | (b, r) <- M.toList x ]
+  where prec = 5
 
 canonicalizeFM :: (Num r, Ord b) => FM r b -> FM r b
 canonicalizeFM = M.filter (/= 0)

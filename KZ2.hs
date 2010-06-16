@@ -16,11 +16,11 @@ import qualified Data.Set as S
 
 newtype KZ2B n = KZ2B { unKZ2B :: UBasis Steenrod } deriving (Eq, Ord)
 
--- NatI n
--- use toNum
 instance Nat n => Show (KZ2B n) where
-  show (KZ2B xs :: KZ2B n) = show xs ++ "_{"
-                             ++ show (toNum (undefined :: n)) ++ "}"
+  showsPrec p (KZ2B xs :: KZ2B n) = showParen (p > prec && degree xs > 0) $
+    showsPrec 0 xs . showString "_{" . showsPrec 0 (toNum (undefined :: n))
+    . showString "}"
+    where prec = 5
 
 instance Nat n => AModule (KZ2B n) where
   sq' r (KZ2B x :: KZ2B n) = freeM filterExcess $ sq' r x where

@@ -10,6 +10,7 @@ import qualified Data.Map as M
 import Basis
 import Steenrod
 import TensorAlgebra(diag)
+import Data.List(intersperse)
 
 -- The exterior algebra could be implemented as a quotient of the tensor
 -- algebra, but I would prefer to have a canonical basis.
@@ -22,13 +23,16 @@ unpack = unBasis
 lift f = pack . f . unpack
 lift2 f x y = pack $ f (unpack x) (unpack y)
 
-showB :: Show b => [b] -> String
-showB [] = "1"
-showB [b] = show b
-showB (b:x) = show b ++ " \\wedge " ++ showB x
+showsPrecB :: Show b => Int -> [b] -> ShowS
+showsPrecB p [] = showString "1"
+showsPrecB p [b] = showsPrec p b
+showsPrecB p bs = showParen (p > prec) . foldr (.) id
+                  . intersperse (showString " \\wedge ")
+                  . map (showsPrec prec) $ bs
+  where prec = 6
 
 instance Show b => Show (Basis b) where
-  show = showB . unpack
+  showsPrec p = showsPrecB p . unpack
 
 -- normalize xs sorts xs; if any elements are repeated, it returns Nothing; it
 -- also returns the parity of the list

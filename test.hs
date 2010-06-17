@@ -13,8 +13,12 @@ import KZ2
 import Natural
 import Grading
 import qualified Data.Set as S
+import DyerLashof
 
 data Basis = A | B deriving (Eq, Ord, Show)
+
+type ZCoef = FreeModule Integer Basis
+type Z2Coef = FreeModule Z2 Basis
 
 a = R.return A
 a' = injectB A
@@ -26,17 +30,19 @@ stuff n = useNatural f n where
   f m = unlines . map (show . foldr sq (iota m) . map read . words) . lines
 
 main = do
-  print (a .+. b .+. a :: FreeModule Integer Basis)
-  print (a .+. b .+. a :: FreeModule Z2 Basis)
-  print (a' + 3 * b' * (a' + b') :: TensorAlgebra Integer Basis)
-  print (a' + 3 * b' * (a' + b') :: TensorAlgebra Z2 Basis)
-  print (a' + 3 * b' * (a' + b') :: SymmetricAlgebra Integer Basis)
-  print (a' + 3 * b' * (a' + b') :: SymmetricAlgebra Z2 Basis)
-  print (a' + 3 * b' * (a' + b') :: ExteriorAlgebra Integer Basis)
-  print (a' + 3 * b' * (a' + b') :: ExteriorAlgebra Z2 Basis)
+  print (a .+. b .+. a :: ZCoef)
+  print (a .+. b .+. a :: Z2Coef)
+  print (a' + 3 * b' * (a' + b') :: TensorAlgebra ZCoef)
+  print (a' + 3 * b' * (a' + b') :: TensorAlgebra Z2Coef)
+  print (a' + 3 * b' * (a' + b') :: SymmetricAlgebra ZCoef)
+  print (a' + 3 * b' * (a' + b') :: SymmetricAlgebra Z2Coef)
+  print (a' + 3 * b' * (a' + b') :: ExteriorAlgebra ZCoef)
+  print (a' + 3 * b' * (a' + b') :: ExteriorAlgebra Z2Coef)
   print (grading 9 :: S.Set (UBasis Steenrod))
   print $ sq 2 ((iota d6)^3)
   print $ sq_ (-16) ((iota d6)^3)
+
+  print (bigrading (4, 6) :: S.Set (UBasis (DyerLashof Steenrod)))
 
   l <- getLine
   let n = head . map read . words $ l

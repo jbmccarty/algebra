@@ -34,7 +34,7 @@ instance Nat n => Graded (KZ2B n) where
     :: Integer -> S.Set (KZ2B n) where
     n' = toNum (undefined :: n)
 
-type KZ2 n = SymmetricAlgebra Z2 (KZ2B n)
+type KZ2 n = FreeSymmetricAlgebra Z2 (KZ2B n)
 
 iota :: Nat n => n -> KZ2 n
 iota _ = 1 R.>>= (injectB . KZ2B)

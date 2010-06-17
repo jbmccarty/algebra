@@ -2,7 +2,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module SymmetricAlgebra(module Basis, SymmetricAlgebra) where
+module SymmetricAlgebra(module Basis, FreeSymmetricAlgebra, SymmetricAlgebra)
+where
 import FreeModuleBase
 import Algebra
 import qualified Restricted as R
@@ -13,6 +14,7 @@ import Basis
 import Steenrod
 import Data.List(genericReplicate, intersperse)
 import TensorAlgebra(diag)
+import Control.Arrow((***))
 
 -- The symmetric algebra could be implemented as a quotient of the tensor
 -- algebra, but I would prefer to have a canonical basis.
@@ -54,17 +56,37 @@ instance (Num r, Ord b) => Multiplicative r (Basis b) where
 instance (Ord b, Graded b) => Graded (Basis b) where
   degree = sum . map (\(b, n) -> n*degree b) . M.toList . unpack
   -- this is woefully inefficient, but a correct implementation is tricky
-  grading = S.fromList . map (pack . M.fromListWith (+)) . g [] where
-    g es n = case compare n 0 of
+  grading = S.fromList . map (pack . M.fromListWith (+)) . g where
+    g n = case compare n 0 of
       LT -> []
       EQ -> [[]]
       GT -> do
         m <- [1..n]
         b <- S.toList $ grading m
-        bs <- g es (n - m)
+        bs <- g (n - m)
         return $ (b, 1):bs
 
-type SymmetricAlgebra r b = FreeModule r (Basis b)
+instance (Ord b, Bigraded b) => Bigraded (Basis b) where
+  bidegree = both sum . unzip . map f . M.toList . unpack
+    where f (b, n) = both (n*) $ bidegree b
+          both g = g *** g
+  -- also woefully inefficient
+  bigrading = S.fromList . map (pack . M.fromListWith (+)) . g where
+    g (i, j) = case (compare i 0, compare j 0) of
+      (LT, _) -> []
+      (_, LT) -> []
+      (EQ, GT) -> []
+      (GT, EQ) -> []
+      (EQ, EQ) -> [[]]
+      (GT, GT) -> do
+        i' <- [1..i]
+        j' <- [1..j]
+        b <- S.toList $ bigrading (i', j')
+        bs <- g (i-i', j-j')
+        return $ (b, 1):bs
+
+type FreeSymmetricAlgebra r b = FreeModule r (Basis b)
+type SymmetricAlgebra m = FreeSymmetricAlgebra (URing m) (UBasis m)
 
 instance Ord b' => BasisFunctor Basis b b' where
   fmapB' f = inject . R.fmap f

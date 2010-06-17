@@ -3,8 +3,8 @@
 {-# LANGUAGE TypeFamilies #-}
 
 -- free modules over a ring, including multiplicative structures
-module FreeModule(module Module, FreeModule(), UBasis, inject, freeM, returnList)
-where
+module FreeModule(module Module, FreeModule(), UBasis, URing, inject, freeM,
+  returnList) where
 import qualified Restricted as R
 import FreeModuleBase
 import Module
@@ -18,6 +18,10 @@ newtype FreeModule r b = CFM { unCFM :: FM r b } deriving (Eq, Ord)
 -- The underlying basis of a free module
 type family UBasis a :: *
 type instance UBasis (FreeModule r b) = b
+
+-- The associated ring of a free module
+type family URing a :: *
+type instance URing (FreeModule r b) = r
 
 pack = CFM
 unpack = unCFM

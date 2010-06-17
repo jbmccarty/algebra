@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module ExteriorAlgebra(module Basis, ExteriorAlgebra) where
+module ExteriorAlgebra(module Basis, FreeExteriorAlgebra, ExteriorAlgebra) where
 import Algebra
 import Z2
 import qualified Restricted as R
@@ -10,7 +10,11 @@ import qualified Data.Map as M
 import Basis
 import Steenrod
 import TensorAlgebra(diag)
-import Data.List(intersperse)
+import Data.List(intersperse, insert)
+import Grading
+import qualified Data.Set as S
+import Control.Arrow((***))
+import Control.Monad(guard)
 
 -- The exterior algebra could be implemented as a quotient of the tensor
 -- algebra, but I would prefer to have a canonical basis.
@@ -63,7 +67,41 @@ instance (Num r, Ord b) => Multiplicative r (Basis b) where
   one = [(pack [], 1)]
   mul x y = normalize' $ unpack x ++ unpack y
 
-type ExteriorAlgebra r b = FreeModule r (Basis b)
+-- For ExteriorAlgebra r b to have a computable grading, b must be
+-- positively-graded and finitary
+instance (Ord b, Graded b) => Graded (Basis b) where
+  degree = sum . map degree . unpack
+  grading = S.fromList . map pack . g where
+    g n = case compare n 0 of
+      LT -> []
+      EQ -> [[]]
+      GT -> do
+        m <- [1..n]
+        b <- S.toList $ grading m
+        bs <- g (n - m)
+        guard (not $ b `elem` bs)
+        return $ insert b bs
+
+-- b should be positively-graded and finitary
+instance (Ord b, Bigraded b) => Bigraded (Basis b) where
+  bidegree = (sum *** sum) . unzip . map bidegree . unpack
+  bigrading = S.fromList . map pack . g where
+    g (i, j) = case (compare i 0, compare j 0) of
+      (LT, _) -> []
+      (_, LT) -> []
+      (EQ, GT) -> []
+      (GT, EQ) -> []
+      (EQ, EQ) -> [[]]
+      (GT, GT) -> do
+        i' <- [1..i]
+        j' <- [1..j]
+        b <- S.toList $ bigrading (i', j')
+        bs <- g (i-i', j-j')
+        guard (not $ b `elem` bs)
+        return $ insert b bs
+
+type FreeExteriorAlgebra r b = FreeModule r (Basis b)
+type ExteriorAlgebra m = FreeExteriorAlgebra (URing m) (UBasis m)
 
 instance Ord b' => BasisFunctor Basis b b' where
   fmapB' f = returnList . normalize' . unpack . fmap f

@@ -3,8 +3,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module TensorAlgebra(module Basis, TensorAlgebra, TensorAlgebraBasis,
-  freeTA, diag) where
+module TensorAlgebra(module Basis, FreeTensorAlgebra, TensorAlgebra,
+TensorAlgebraBasis, freeTA, diag) where
 import Algebra
 import qualified Restricted as R
 import Data.List(intersperse)
@@ -13,6 +13,7 @@ import Grading
 import Basis
 import Steenrod
 import Z2
+import Control.Arrow((***))
 
 newtype Basis b = Basis { unBasis :: [b] } deriving (Eq, Ord, Functor, Monad)
 
@@ -51,7 +52,25 @@ instance (Ord b, Graded b) => Graded (Basis b) where
         bs <- g (n - m)
         return $ b:bs
 
-type TensorAlgebra r b = FreeModule r (Basis b)
+-- b should be positively-graded and finitary
+instance (Ord b, Bigraded b) => Bigraded (Basis b) where
+  bidegree = (sum *** sum) . unzip . map bidegree . unpack
+  bigrading = S.fromList . map pack . g where
+    g (i, j) = case (compare i 0, compare j 0) of
+      (LT, _) -> []
+      (_, LT) -> []
+      (EQ, GT) -> []
+      (GT, EQ) -> []
+      (EQ, EQ) -> [[]]
+      (GT, GT) -> do
+        i' <- [1..i]
+        j' <- [1..j]
+        b <- S.toList $ bigrading (i', j')
+        bs <- g (i-i', j-j')
+        return $ b:bs
+
+type FreeTensorAlgebra r b = FreeModule r (Basis b)
+type TensorAlgebra m = FreeTensorAlgebra (URing m) (UBasis m)
 
 instance Ord b' => BasisFunctor Basis b b' where
   fmapB' f = inject . fmap f
@@ -60,7 +79,7 @@ instance (Ord b', Show b') => BasisMonad Basis b b' where
   bindB' f = product . map f . unpack
 
 -- TensorAlgebra r b is a free r-algebra
-freeTA :: (Module r m, Num m) => (b -> m) -> TensorAlgebra r b -> m
+freeTA :: (Module r m, Num m) => (b -> m) -> FreeTensorAlgebra r b -> m
 freeTA f = freeM (product . map f . unpack)
 
 -- The diagonal action on the tensor algebra and its quotients

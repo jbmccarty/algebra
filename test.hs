@@ -14,6 +14,7 @@ import Natural
 import Grading
 import qualified Data.Set as S
 import DyerLashof
+import Suspension
 
 data Basis = A | B deriving (Eq, Ord, Show)
 
@@ -42,7 +43,7 @@ main = do
   print $ sq 2 ((iota d6)^3)
   print $ sq_ (-16) ((iota d6)^3)
 
-  print (bigrading (4, 6) :: S.Set (UBasis (DyerLashof Steenrod)))
+  print (bigrading (4, 6) :: S.Set (UBasis (DyerLashof (Suspend D1 Steenrod))))
 
   l <- getLine
   let n = head . map read . words $ l

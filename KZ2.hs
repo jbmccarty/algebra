@@ -7,7 +7,7 @@ import Algebra
 import SymmetricAlgebra
 import Z2
 import qualified Restricted as R
-import Data.TypeLevel(Nat, toNum)
+import Natural
 -- from the type-level package in hackage
 import Control.Arrow(first)
 import Basis

@@ -2,7 +2,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module ExteriorAlgebra(module Basis, FreeExteriorAlgebra, ExteriorAlgebra) where
+module ExteriorAlgebra(module Basis, FreeExteriorAlgebra, ExteriorAlgebra,
+  ExteriorAlgebraBasis) where
 import Algebra
 import Z2
 import qualified Restricted as R
@@ -102,6 +103,10 @@ instance (Ord b, Bigraded b) => Bigraded (Basis b) where
 
 type FreeExteriorAlgebra r b = FreeModule r (Basis b)
 type ExteriorAlgebra m = FreeExteriorAlgebra (URing m) (UBasis m)
+type ExteriorAlgebraBasis b = Basis b
+
+instance ViewBasis (Basis b) [b] where
+  viewBasis = unpack
 
 instance Ord b' => BasisFunctor Basis b b' where
   fmapB' f = returnList . normalize' . unpack . fmap f

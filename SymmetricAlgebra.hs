@@ -29,6 +29,11 @@ unpack = unBasis
 lift f = pack . f . unpack
 lift2 f x y = pack $ f (unpack x) (unpack y)
 
+type SymmetricAlgebraBasis b = Basis b
+
+instance ViewBasis (Basis b) [b] where
+  viewBasis = concatMap (uncurry $ flip genericReplicate) . M.toList . unpack
+
 showsPrecB :: Show b => Int -> FM Integer b -> ShowS
 showsPrecB p = s p . M.toList where
   s p [] = showString "1"
@@ -104,5 +109,4 @@ instance (Ord b', Show b') => BasisMonad Basis b b' where
 
 -- I'm sure there's a more efficient algorithm than using diag directly.
 instance (Ord b, Show b, AModule b) => AModule (Basis b) where
-  sq' n = diag n . concatMap (uncurry $ flip genericReplicate) . M.toList
-          . unpack
+  sq' n = diag n . viewBasis

@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 
 module Basis where
 import FreeModule
@@ -38,3 +39,6 @@ bindB x f = x R.>>= bindB' f
 include :: (Num r, Ord (f b), R.MonadR f b)
   => FreeModule r b -> FreeModule r (f b)
 include = R.fmap R.return
+
+class ViewBasis b b' | b -> b' where
+  viewBasis :: b -> b'

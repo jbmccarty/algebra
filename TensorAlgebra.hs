@@ -4,7 +4,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module TensorAlgebra(module Basis, FreeTensorAlgebra, TensorAlgebra,
-TensorAlgebraBasis, freeTA, diag) where
+TensorAlgebraBasis, freeTA, diag', diag) where
 import Algebra
 import qualified Restricted as R
 import Data.List(intersperse)
@@ -25,6 +25,9 @@ lift2 f x y = pack $ f (unpack x) (unpack y)
 -- Some modules need to examine elementary tensors, but I don't want to pollute
 -- the namespace.
 type TensorAlgebraBasis b = Basis b
+
+instance ViewBasis (Basis b) [b] where
+  viewBasis = unpack
 
 instance Show b => Show (Basis b) where
   showsPrec p (Basis []) = showString "1"
@@ -82,12 +85,17 @@ instance (Ord b', Show b') => BasisMonad Basis b b' where
 freeTA :: (Module r m, Num m) => (b -> m) -> FreeTensorAlgebra r b -> m
 freeTA f = freeM (product . map f . unpack)
 
+-- More general version of diag, useful for DyerLashof
+diag' :: (Ord (f b), Show (f b), Multiplicative Z2 (f b), R.MonadR f b) =>
+  (Integer -> b -> FreeModule Z2 (f b)) -> Integer -> [b] -> FreeModule Z2 (f b)
+diag' s n [] | n == 0 = 1
+             | otherwise = 0 -- Sq^n 1 = 0 if n /= 0
+diag' s n (x:xs) = sum [ s t x * diag' s (n-t) xs | t <- [0..n] ]
+
 -- The diagonal action on the tensor algebra and its quotients
 diag :: (Ord (f b), Show (f b), Multiplicative Z2 (f b), R.MonadR f b,
   AModule b) => Integer -> [b] -> FreeModule Z2 (f b)
-diag n [] | n == 0    = 1
-          | otherwise = 0 -- Sq^n 1 = 0 if n /= 0
-diag n (x:xs) = sum [ include (sq' t x) * diag (n-t) xs | t <- [0..n] ]
+diag = diag' (\n -> include . sq' n)
 
 instance (Ord b, Show b, AModule b) => AModule (Basis b) where
   sq' n = diag n . unpack

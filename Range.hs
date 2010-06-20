@@ -1,4 +1,5 @@
-module Range where
+module Range(module Ratio, Endpoint(..), range) where
+import Ratio(Rational, (%))
 
 data Endpoint = Inc Rational | Exc Rational
 

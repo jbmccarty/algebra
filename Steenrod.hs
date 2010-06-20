@@ -14,6 +14,7 @@ import Control.Monad(liftM2)
 import Grading
 import Basis
 import qualified Data.Set as S
+import Range
 
 -- include only admissible sequences
 type B = [Integer]
@@ -41,7 +42,7 @@ grading' :: Integer -> S.Set B
 grading' n = case compare n 0 of
   LT -> S.empty
   EQ -> S.singleton []
-  GT -> S.fromList [ i:x | j <- [0..n `div` 2], let i = n-j,
+  GT -> S.fromList [ i:x | j <- range (Inc 0, Inc $ n%2), let i = n-j,
                      x <- S.toList $ grading' j, i - 2*topSquare x >= 0 ]
 
 excess' :: B -> Integer
@@ -62,7 +63,8 @@ normalize x = n' [] $ [x] where
   relation [0] = [[]]
   relation (r:sx@(s:x)) | r < 2*s   = map (++ x) $ adem r s
                         | otherwise = map (r:) $ relation sx
-  adem r s = [ [r+s-t, t] | t <- [0..r `div` 2], odd $ choose (s-t-1) (r-2*t) ]
+  adem r s = [ [r+s-t, t] | t <- range (Inc 0, Inc $ r%2),
+               odd $ choose (s-t-1) (r-2*t) ]
 
 mul' :: B -> B -> [(B, Z2)]
 mul' x y = map (\b -> (b, 1)) $ normalize $ x ++ y

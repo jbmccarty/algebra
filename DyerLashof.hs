@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module DyerLashof(DyerLashof) where
+module DyerLashof(FreeDyerLashof, DyerLashof, q) where
 import Data.List(intersperse)
 import ExteriorAlgebra
 import Z2
@@ -39,6 +39,9 @@ instance Show b => Show (Basis b) where
 
 instance R.MonadR Basis b where
   return b = Basis ([], b)
+
+instance ViewBasis (Basis b) (B b) where
+  viewBasis = unpack
 
 -- b should be positively graded
 instance (Ord b, Graded b) => Bigraded (Basis b) where

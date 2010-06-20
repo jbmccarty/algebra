@@ -1,6 +1,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverlappingInstances #-}
+-- needed for the instance of AModule in DyerLashof.hs!
 
 module ExteriorAlgebra(module Basis, FreeExteriorAlgebra, ExteriorAlgebra,
   ExteriorAlgebraBasis) where

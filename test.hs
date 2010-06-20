@@ -26,6 +26,10 @@ a' = injectB A
 b = R.return B
 b' = injectB B
 
+i = include . include $ 1 :: DyerLashof Steenrod
+
+type Foo = DyerLashof Z2Coef
+
 stuff :: Integer -> String -> String
 stuff n = useNatural f n where
   f m = unlines . map (show . foldr sq (iota m) . map read . words) . lines
@@ -44,6 +48,7 @@ main = do
   print $ sq_ (-16) ((iota d6)^3)
 
   print (bigrading (4, 6) :: S.Set (UBasis (DyerLashof (Suspend D1 Steenrod))))
+  print $ q 0 (sq 3 i + sq 2 i + i*sq 4 i)
 
   l <- getLine
   let n = head . map read . words $ l

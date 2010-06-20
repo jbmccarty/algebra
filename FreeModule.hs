@@ -4,11 +4,12 @@
 
 -- free modules over a ring, including multiplicative structures
 module FreeModule(module Module, FreeModule(), UBasis, URing, inject, freeM,
-  returnList) where
+  returnList, viewFM) where
 import qualified Restricted as R
 import FreeModuleBase
 import Module
 import Data.List(foldl')
+import qualified Data.Map as M
 
 --------------------------------------------------------------------------------
 -- The user-visible type and associated functions
@@ -64,3 +65,10 @@ instance (Num r, Ord b') => R.Monad (FreeModule r) b b' where
 -- their sum in the free module
 returnList :: (Num r, Ord b) => [(b, r)] -> FreeModule r b
 returnList = foldl' (.+.) zero . map (\(b, r) -> r .* R.return b)
+
+-- The inverse of returnList: view an element of a free module as a list of
+-- (basis element, coefficient) pairs. WARNING: this allows one to construct
+-- non-homomorphisms!
+-- This also breaks the abstraction of FM, although that's fixable.
+viewFM :: FreeModule r b -> [(b, r)]
+viewFM = M.toList . unpack

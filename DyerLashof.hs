@@ -1,6 +1,5 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module DyerLashof(DyerLashof) where
@@ -15,6 +14,7 @@ import Steenrod
 import TensorAlgebra(diag')
 import qualified Restricted as R
 import Util(choose)
+import Range
 
 -- If b is a basis for H^*(X), then Basis b is a multiplicative basis for
 -- H^*(D_{\infty, *} X).
@@ -57,15 +57,30 @@ instance (Ord b, Graded b) => Bigraded (Basis b) where
     admissible _ [] = True
     admissible r (r':_) = r <= r'
 
---instance (Ord b, AModule b) => AModule (Basis b) where
---  sq' i (Basis ([], x)) = freeM (\y -> inject $ Basis ([], y)) $ sq' i x
---  sq' i (Basis (r:rs, x)) = ...
+-- Calculate Q_r of a sequence of Q's. This should terminate since it reduces
+-- the lexicographic ordering of each term.
+q' :: Ord b => Integer -> Basis b -> FreeModule Z2 (Basis b)
+q' n (Basis ([], b)) = inject $ Basis ([n], b)
+q' n (Basis (rrs@(r:rs), b))
+  | n <= r = inject $ Basis (n:rrs, b)
+  | otherwise =
+    foldr (.+.) zero [ freeM (q' (e-2*d+r)) $ q' (d+r) $ Basis (rs, b)
+                       | d <- range (Inc $ e%3, Exc $ e%2),
+                       odd $ choose (e-d-1) d ]
+  where e = n-r
+  -- this shouldn't ever have Q_0 being applied to a sum, so I don't need
+  -- multiplication
 
-q' :: Integer -> Basis b -> FreeModule Z2 (Basis b)
-q' n = undefined -- normalize sequences
-
-q :: Integer -> FreeDyerLashof b -> FreeDyerLashof b
-q n = undefined -- normalize sequences, distribute sums and products appropriately...
+q :: (Ord b, Show b) => Integer -> FreeDyerLashof b -> FreeDyerLashof b
+q r x = if r > 0 then s1 else s1+s2 where
+  s1 = freeM f x -- Q_r is additive unless r = 0
+  f b = case viewBasis b of
+    [] -> if r == 0 then 1 else 0 -- Q_r(1) = 0 iff r > 0
+    [x] -> include $ q' r x -- no products involved
+    _ -> 0 -- Q_r of a nontrivial product is zero
+  s2 = p . map (returnList . (:[])) . viewFM $ x -- s2 is the "half-square" of x
+  p [] = 0
+  p (t:ts) = sum (map (t*) ts) + p ts
 
 -- Kludgy
 type FreeDyerLashof b = FreeExteriorAlgebra Z2 (Basis b)
@@ -75,8 +90,9 @@ instance (Ord b, Show b, AModule b, Graded b) => AModule (ExteriorAlgebraBasis (
   sq' n b = diag' s n $ viewBasis b where
     s n (Basis ([], b)) = include . include $ sq' n b
     s n (Basis (r:rs, b)) = if r > 0 then s1 else s1 + s2 where
-      s1 = sum [ fromInteger (choose (d+r-t) (n - 2*t))
-                 * q (r + n - 2*t) (s t (Basis (rs, b))) | t <- [0..n `div` 2] ]
+      s1 = sum [ q (r + n - 2*t) (s t (Basis (rs, b)))
+                 | t <- range (Inc 0, Inc $ n%2),
+                 odd $ choose (d+r-t) (n - 2*t) ]
       s2 = sum [ s t (Basis (rs, b)) * s (n-t) (Basis (rs, b))
-                 | t <- [0..(n-1) `div` 2] ]
+                 | t <- range (Inc 0, Exc $ n%2) ]
       d = degree b

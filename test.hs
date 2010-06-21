@@ -15,6 +15,7 @@ import Grading
 import qualified Data.Set as S
 import DyerLashof
 import Suspension
+import Sequence
 
 data Basis = A | B deriving (Eq, Ord, Show)
 
@@ -35,6 +36,7 @@ stuff n = useNatural f n where
   f m = unlines . map (show . foldr sq (iota m) . map read . words) . lines
 
 main = do
+{-
   print (a .+. b .+. a :: ZCoef)
   print (a .+. b .+. a :: Z2Coef)
   print (a' + 3 * b' * (a' + b') :: TensorAlgebra ZCoef)
@@ -49,7 +51,11 @@ main = do
 
   print (bigrading (4, 6) :: S.Set (UBasis (DyerLashof (Suspend D1 Steenrod))))
   print $ q 0 (sq 3 i + sq 2 i + i*sq 4 i)
+-}
+  putStr $ concat [ show x ++ " & " ++ show (differential 1 x) ++ "\\\\\n" | x <- map inject . S.toList $ bigrading (4, 7) :: [DyerLashof (Suspend D1 Steenrod)] ]
 
+{-
   l <- getLine
   let n = head . map read . words $ l
   interact (stuff n)
+-}

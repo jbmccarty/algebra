@@ -60,6 +60,11 @@ instance (Ord b, Graded b) => Bigraded (Basis b) where
     admissible _ [] = True
     admissible r (r':_) = r <= r'
 
+-- this is a kludge to make sq_ work
+instance (Ord b, Graded b) => Graded (Basis b) where
+  degree = snd . bidegree
+  grading = undefined
+
 -- Calculate Q_r of a sequence of Q's. This should terminate since it reduces
 -- the lexicographic ordering of each term.
 q' :: Ord b => Integer -> Basis b -> FreeModule Z2 (Basis b)

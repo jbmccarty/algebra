@@ -23,7 +23,7 @@ showsPrecB :: Int -> B -> ShowS
 showsPrecB p rs = showParen (p > prec && (not . null) rs)
                   . foldr (.) (showString "\\iota") . map s $ rs
   where s r = showString "Sq^{" . showsPrec 0 r . showString "} "
-        prec = 5
+        prec = 7
 
 admissible :: B -> Bool
 admissible [] = True

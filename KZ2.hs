@@ -20,7 +20,7 @@ instance Nat n => Show (KZ2B n) where
   showsPrec p (KZ2B xs :: KZ2B n) = showParen (p > prec && degree xs > 0) $
     showsPrec 0 xs . showString "_{" . showsPrec 0 (toNum (undefined :: n))
     . showString "}"
-    where prec = 5
+    where prec = 7
 
 instance Nat n => AModule (KZ2B n) where
   sq' r (KZ2B x :: KZ2B n) = freeM filterExcess $ sq' r x where

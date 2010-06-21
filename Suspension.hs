@@ -20,7 +20,7 @@ instance R.MonadR (Basis n) b where
   return = pack
 
 instance (Nat n, Show b) => Show (Basis n b) where
-  showsPrec p (b :: Basis n b) = showParen (p > 5) $ showString "\\sigma^{"
+  showsPrec p (b :: Basis n b) = showParen (p > 7) $ showString "\\sigma^{"
     . showsPrec 0 n' . showString "} " . showsPrec p (unpack b)
     where n' = toNum (undefined :: n)
   -- showsPrec p = showsPrec p . unpack

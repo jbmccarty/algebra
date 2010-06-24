@@ -52,7 +52,7 @@ main = do
   print (bigrading (4, 6) :: S.Set (UBasis (DyerLashof (Suspend D1 Steenrod))))
   print $ q 0 (sq 3 i + sq 2 i + i*sq 4 i)
 -}
-  putStr $ concat [ show x ++ " & " ++ show (differential 1 x) ++ "\\\\\n" | x <- map inject . S.toList $ bigrading (4, 7) :: [DyerLashof (Suspend D1 Steenrod)] ]
+  putStr $ concat [ show x ++ " & " ++ show (differential 1 x) ++ "\\\\\n" | x <- map inject . S.toList $ bigrading (4, 9) :: [DyerLashof (Suspend D1 Steenrod)] ]
 
 {-
   l <- getLine

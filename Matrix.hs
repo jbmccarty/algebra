@@ -3,9 +3,51 @@
 module Matrix where
 import qualified Data.Vector as V
 import Control.Monad.State
+import Data.Maybe(isJust, fromJust)
+
+-- typeclass for integral domains
+class Num r => IntegralDomain r where
+  -- Divisibility in an integral domain should be decidable: for all a and b in
+  -- r, there exists at most one c in r such that a⋅c = b. In this case,
+  -- a `divides` b = Just c; otherwise, a `divides` b = Nothing.
+  divides :: r -> r -> Maybe r
+
+instance IntegralDomain Integer where
+  divides a b = case b `quotRem` a of
+    (q, 0) -> Just q
+    _ -> Nothing
+
+-- test whether an element is a unit
+isUnit :: IntegralDomain r => r -> Bool
+isUnit a = isJust $ a `divides` 1
+
+-- typeclass for principal ideal domains
+class IntegralDomain r => PID r where
+  -- In a PID, we have gcd(a, b) = α⋅a + β⋅b for some α and β.
+  -- gcdExpr a b = (α, β) in this case.
+  gcdExpr :: r -> r -> (r, r)
+
+instance PID Integer where
+  gcdExpr _ 0 = (1, 0)
+  gcdExpr a b = case quotRem a b of
+    (q, 0) -> (0, 1) -- if b divides a, then gcd(a, b) = 0a + 1b
+    (q, r) -> case gcdExpr b r of
+      (alpha, beta) -> (beta, alpha - beta*q)
+      -- if a = qb + r, then r = a - qb, so
+      -- 1. gcd(b, r) divides a, hence gcd(b, r) divides gcd(a, b)
+      -- 2. gcd(a, b) divides a - qb = r, so gcd(a, b) divides gcd(b, r)
+      -- 3. so gcd(a, b) = gcd(b, r) up to units
+      -- If gcd(b, r) = αb + βr, then gcd(a, b) = gcd(b, r) = αb + βr
+      -- = αb + β(a-qb) = βa + (α - βq)b
 
 -- A type for m x n matrices (m rows, n columns, indexed starting at 0)
 type Matrix r = V.Vector (V.Vector r)
+
+rows :: Matrix r -> Int
+rows = V.length
+
+columns :: Matrix r -> Int
+columns x = if V.length x > 0 then V.length $ V.head x else 0
 
 -- swap two entries of a vector
 swap :: Int -> Int -> V.Vector a -> V.Vector a
@@ -21,23 +63,36 @@ swapCols' :: Int -> Int -> Matrix r -> Matrix r
 swapCols' i j | i == j = id
               | otherwise = V.map (swap i j)
 
--- linRow' a i j adds a times row i to row j
-linRow' :: Num r => r -> Int -> Int -> Matrix r -> Matrix r
-linRow' a i j m | i == j = error "linRow': can't add a row to itself"
+-- addRow' a i j adds a times row i to row j
+addRow' :: Num r => r -> Int -> Int -> Matrix r -> Matrix r
+addRow' a i j m | i == j = error "addRow': can't add a row to itself"
                 | otherwise = m V.// [(j, V.zipWith f (m V.! i) (m V.! j))]
   where f x y = a*x + y
 
--- linCol' a i j adds a times column i to column j
-linCol' :: Num r => r -> Int -> Int -> Matrix r -> Matrix r
-linCol' a i j | i == j = error "linCol': can't add a column to itself"
+-- addCol' a i j adds a times column i to column j
+addCol' :: Num r => r -> Int -> Int -> Matrix r -> Matrix r
+addCol' a i j | i == j = error "addCol': can't add a column to itself"
               | otherwise = V.map f where
   f row = row V.// [(j, a*(row V.! i) + (row V.! j))]
 
+-- multiply a row by a unit
+scaleRow' :: IntegralDomain r => r -> Int -> Matrix r -> Matrix r
+scaleRow' a i m | not $ isUnit a = error "scaleRow': can't scale by a non-unit"
+                | otherwise = m V.// [(i, V.map (a*) $ m V.! i)]
+
+-- multiply a column by a unit
+scaleCol' :: IntegralDomain r => r -> Int -> Matrix r -> Matrix r
+scaleCol' a i | not $ isUnit a = error "scaleCol': can't scale by a non-unit"
+              | otherwise = V.map f
+  where f row = row V.// [(i, a*(row V.! i))]
+
 -- arbRow' M i j applies the 2x2 matrix M to the ith and jth rows
-arbRow' :: Num r => ((r,r),(r,r)) -> Int -> Int -> Matrix r -> Matrix r
-arbRow' ((a,b),(c,d)) i j m | i == j = error "arbRow': rows must be distinct"
-                            | otherwise = m V.// [(i, V.zipWith f ri rj),
-                                                  (j, V.zipWith g ri rj)]
+arbRow' :: IntegralDomain r =>
+  ((r,r),(r,r)) -> Int -> Int -> Matrix r -> Matrix r
+arbRow' ((a,b),(c,d)) i j m
+  | i == j = error "arbRow': rows must be distinct"
+  | not $ isUnit (a*d-b*c) = error "arbRow': determinant must be a unit"
+  | otherwise = m V.// [(i, V.zipWith f ri rj), (j, V.zipWith g ri rj)]
   where ri = m V.! i
         rj = m V.! j
         f x y = a*x + b*y
@@ -45,81 +100,126 @@ arbRow' ((a,b),(c,d)) i j m | i == j = error "arbRow': rows must be distinct"
 
 -- arbCol' M i j applies the 2x2 matrix M to the ith and jth columns (i.e.
 -- multiplication on the right)
-arbCol' :: Num r => ((r,r),(r,r)) -> Int -> Int -> Matrix r -> Matrix r
-arbCol' ((a,b),(c,d)) i j | i == j = error "arbCol': columns must be distinct"
-                            | otherwise = V.map f where
-  f row = row V.// [(i, a*ri + c*rj), (j, b*ri + d*rj)]
-    where ri = row V.! i
-          rj = row V.! j
-
--- typeclass for principal ideal domains
-class Num r => PID r where
-  -- If a = b⋅c, then divide a b = c
-  divide :: r -> r -> Maybe r
-  -- if d = gcd(a, b) = α⋅a + β⋅b, then gcdExpr a b = (α, β)
-  gcdExpr :: r -> r -> (r, r)
+arbCol' :: IntegralDomain r =>
+  ((r,r),(r,r)) -> Int -> Int -> Matrix r -> Matrix r
+arbCol' ((a,b),(c,d)) i j
+  | i == j = error "arbCol': columns must be distinct"
+  | not $ isUnit (a*d-b*c) = error "arbCol': determinant must be a unit"
+  | otherwise = V.map f where
+    f row = row V.// [(i, a*ri + c*rj), (j, b*ri + d*rj)]
+      where ri = row V.! i
+            rj = row V.! j
 
 -- a matrix container that keeps track of row and column operations
-newtype MatrixM r a = MatrixM { unMatrixM :: State (Matrix r, Matrix r, Matrix r) a } deriving Monad
+newtype MatrixM r a = MatrixM { unMatrixM :: State (Matrix r, Matrix r, Matrix r) a } deriving (Functor, Monad)
 
 pack = MatrixM
 unpack = unMatrixM
 
--- If runM f M = (A, B, C), then A and C are invertible, and M = ABC.
-runM :: Num r => MatrixM r a -> Matrix r -> (Matrix r, Matrix r, Matrix r)
-runM f m = execState (unpack f) (identity rows, m, identity cols) where
-  rows = V.length m
-  cols = if rows > 0 then V.length $ V.head m else 0
-  identity i = V.fromList . map V.fromList $ id i
-  id 0 = []
-  id m = (1:replicate (m-1) 0):(map (0:) $ id (m-1))
+-- If runM f M = (a, M', R, C), then R and C are invertible, and M' = RMC;
+-- "a" will be whatever data the computation returns
+runM :: Num r => MatrixM r a -> Matrix r -> (a, Matrix r, Matrix r, Matrix r)
+runM f m = case runState (unpack f) (m, identity $ rows m, identity $ columns m)
+  of (a, (m', r, c)) -> (a, m', r, c)
+  where
+    identity i = V.fromList . map V.fromList $ id i
+    id 0 = []
+    id i = (1:replicate (i-1) 0):(map (0:) $ id (i-1))
+
+
 
 getM :: MatrixM r (Matrix r)
 getM = pack $ do
-  (_, b, _) <- get
-  return b
+  (m, _, _) <- get
+  return m
 
-swapRows :: Int -> Int -> MatrixM r ()
+swapRows :: Num r => Int -> Int -> MatrixM r ()
 swapRows i j = pack $ do
-  (a, b, c) <- get
-  put (swapCols' i j a, swapRows' i j b, c)
+  (m, r, c) <- get
+  put (swapRows' i j m, swapRows' i j r, c)
 
-swapCols :: Int -> Int -> MatrixM r ()
+swapCols :: Num r => Int -> Int -> MatrixM r ()
 swapCols i j = pack $ do
-  (a, b, c) <- get
-  put (a, swapCols' i j b, swapRows' i j c)
+  (m, r, c) <- get
+  put (swapCols' i j m, r, swapCols' i j c)
 
-linRow :: Num r => r -> Int -> Int -> MatrixM r ()
-linRow r i j = pack $ do
-  (a, b, c) <- get
-  put (linCol' (-r) j i a, linRow' r i j b, c)
+addRow :: Num r => r -> Int -> Int -> MatrixM r ()
+addRow a i j = pack $ do
+  (m, r, c) <- get
+  put (addRow' a i j m, addRow' a i j r , c)
 
-linCol :: Num r => r -> Int -> Int -> MatrixM r ()
-linCol r i j = pack $ do
-  (a, b, c) <- get
-  put (a, linCol' r i j b, linRow' (-r) j i c)
+addCol :: Num r => r -> Int -> Int -> MatrixM r ()
+addCol a i j = pack $ do
+  (m, r, c) <- get
+  put (addCol' a i j m, r, addCol' a i j c)
 
-arbRow :: Num r => ((r,r),(r,r)) -> Int -> Int -> MatrixM r ()
-arbRow ((a,b),(c,d)) i j | a*d-b*c /= 1 = error "arbRow: determinant must be 1"
-                         | otherwise = pack $ do
-  (a', b', c') <- get
-  put (arbCol' ((d,-b),(-c,a)) i j a', arbRow' ((a,b),(c,d)) i j b', c')
+scaleRow :: IntegralDomain r => r -> Int -> MatrixM r ()
+scaleRow a i = pack $ do
+  (m, r, c) <- get
+  put (scaleRow' a i m, scaleRow' a i r, c)
 
-arbCol :: Num r => ((r,r),(r,r)) -> Int -> Int -> MatrixM r ()
-arbCol ((a,b),(c,d)) i j | a*d-b*c /= 1 = error "arbCol: determinant must be 1"
-                         | otherwise = pack $ do
-  (a', b', c') <- get
-  put (a', arbCol' ((a,b),(c,d)) i j b', arbRow' ((d,-b),(-c,a)) i j c')
+scaleCol :: IntegralDomain r => r -> Int -> MatrixM r ()
+scaleCol a i = pack $ do
+  (m, r, c) <- get
+  put (scaleCol' a i m, r, scaleCol' a i c)
 
-test :: (Matrix Integer, Matrix Integer, Matrix Integer)
+arbRow :: IntegralDomain r => ((r,r),(r,r)) -> Int -> Int -> MatrixM r ()
+arbRow ((a,b),(c,d)) i j = pack $ do
+    (m, r, c') <- get
+    put (arbRow' ((a,b),(c,d)) i j m, arbRow' ((a,b),(c,d)) i j r, c')
+
+arbCol :: IntegralDomain r => ((r,r),(r,r)) -> Int -> Int -> MatrixM r ()
+arbCol ((a,b),(c,d)) i j = pack $ do
+    (m, r, c') <- get
+    put (arbCol' ((a,b),(c,d)) i j m, r, arbCol' ((a,b),(c,d)) i j c')
+
+-- put a matrix in upper-triangular form using row operations having
+-- determinant ± 1; the Bool value is whether the determinant is positive
+semi_rref :: PID r => MatrixM r Bool
+semi_rref = s 0 0 where
+  s i j = do
+    m <- getM
+    let r = rows m
+        c = columns m
+    if i >= r || j >= c then return True else case findNonzeroEntry i j m of
+        Nothing -> s i (j+1)
+        Just k -> (if k == i then return id else swapRows i k >> return not)
+          >>= \f -> do
+          -- the above is really contorted: making the Bool part of the state
+          -- might be more clear
+            elimColumn i r j
+            fmap f $ s (i+1) (j+1)
+
+  -- find the first nonzero entry in column j, discounting rows above row i
+  findNonzeroEntry i j = fmap (i+) . V.findIndex ((0 /=) . (V.! j)) . V.drop i
+
+  -- eliminate entries in column j and rows (i+1)..r using secondary row
+  -- operations
+  elimColumn i r j = mapM_ (elimEntry i j) [(i+1)..(r-1)]
+  elimEntry i j k = do
+    m <- getM
+    let a = m V.! i V.! j
+        b = m V.! k V.! j
+        (alpha, beta) = gcdExpr a b
+        d = alpha*a + beta*b -- d = gcd(a, b)
+        a' = fromJust $ divides d a -- so d divides a and b
+        b' = fromJust $ divides d b
+    arbRow ((alpha,beta),(-b',a')) i k
+    -- After multiplication by this matrix, m will be gcd(a, b) in position i,
+    -- j, and zero in position k, j.
+    -- Since d = αa + βb, then 1 = αa/d + βb/d = αa' + βb', which is also the
+    -- determinant of this matrix.
+    
+
+test :: ((), Matrix Integer, Matrix Integer, Matrix Integer)
 test = runM f . V.fromList . map V.fromList $ [[1,2,3],[4,5,6],[7,8,9]] where
   f = do
-    linRow (-4) 0 1
-    linRow (-7) 0 2
-    linRow (-2) 1 2
-    linCol (-2) 0 1
-    linCol (-3) 0 2
-    linCol (-2) 1 2
+    addRow (-4) 0 1
+    addRow (-7) 0 2
+    addRow (-2) 1 2
+    addCol (-2) 0 1
+    addCol (-3) 0 2
+    addCol (-2) 1 2
 
 
 

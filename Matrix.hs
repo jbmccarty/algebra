@@ -7,12 +7,15 @@ import Data.Maybe(isJust, fromJust)
 
 -- typeclass for integral domains
 class Num r => IntegralDomain r where
-  -- Divisibility in an integral domain should be decidable: for all a and b in
-  -- r, there exists at most one c in r such that a⋅c = b. In this case,
-  -- a `divides` b = Just c; otherwise, a `divides` b = Nothing.
+  -- Divisibility in an integral domain should be decidable: for all nonzero a
+  -- and all b in r, there exists at most one c in r such that a⋅c = b. In this
+  -- case, a `divides` b = Just c; otherwise, a `divides` b = Nothing.
+  -- Note: 0 divides 0, but not uniquely, and 0 does not divide anything else.
   divides :: r -> r -> Maybe r
 
 instance IntegralDomain Integer where
+  divides 0 0 = Just 0
+  divides 0 _ = Nothing
   divides a b = case b `quotRem` a of
     (q, 0) -> Just q
     _ -> Nothing
@@ -126,8 +129,6 @@ runM f m = case runState (unpack f) (m, identity $ rows m, identity $ columns m)
     id 0 = []
     id i = (1:replicate (i-1) 0):(map (0:) $ id (i-1))
 
-
-
 getM :: MatrixM r (Matrix r)
 getM = pack $ do
   (m, _, _) <- get
@@ -210,16 +211,178 @@ semi_rref = s 0 0 where
     -- Since d = αa + βb, then 1 = αa/d + βb/d = αa' + βb', which is also the
     -- determinant of this matrix.
     
+easy_rref :: (Fractional r, IntegralDomain r) => MatrixM r ()
+easy_rref = e 0 0 where
+  e i j = do
+    m <- getM
+    let r = rows m
+        c = columns m
+    when (i < r && j < c) $ case findNonzeroEntry i j m of
+      Nothing -> e i (j+1)
+      Just k -> do
+        when (k /= i) $ swapRows i k
+        scale i j
+        elimColumn i r j
+        e (i+1) (j+1)
+
+  -- find the first nonzero entry in column j, discounting rows above row i
+  findNonzeroEntry i j = fmap (i+) . V.findIndex ((0 /=) . (V.! j)) . V.drop i
+
+  -- scale a row so the leading coefficient is 1
+  scale i j = do
+    m <- getM
+    let a = m V.! i V.! j
+    scaleRow (1/a) i
+
+  -- eliminate entries in column j and rows other than i
+  elimColumn i r j = mapM_ (elimEntry i j) $ [0..(i-1)] ++ [(i+1)..(r-1)]
+  elimEntry i j k = do
+    m <- getM
+    let a = m V.! k V.! j
+    addRow (-a) i k
+
+-- compute the Smith normal form of a matrix
+smith :: PID r => MatrixM r ()
+smith = s 0 where
+  -- after running s i, the matrix is diagonal, but the entries may not form a
+  -- divisor chain
+  s i = do
+    m <- getM
+    when (i < rows m && i < columns m) $ case findNonzeroEntry i m of
+      Nothing -> return ()
+      Just (k, j) -> do
+        when (i /= k) $ swapRows i k -- put a nonzero entry in position (i, i)
+        when (i /= j) $ swapCols i j
+        elimColumn i -- eliminate entries in column i, below row i
+        doWhile $ cycle [elimRow i, elimColumn i]
+        -- ^ do column and row operations alternately until one of them uses
+        -- no secondary column/row operations; this means that row/column i was
+        -- not modified by the column/row operations and hence still contains
+        -- zeros where required; this is guaranteed to terminate since we are
+        -- in a PID
+        s (i+1)
+        -- now we inductively assume that the submatrix below row i and right
+        -- of column i is in Smith normal form, but the (i,i) entry might not
+        -- divide the (i+1,i+1) entry
+        divisorChain i -- thus we make it so
+        
+  -- return the indices of a nonzero entry in the matrix, if any
+  findNonzeroEntry i m = do
+    let m' = V.map (V.findIndex (0 /=) . V.drop i) . V.drop i $ m
+    r <- V.findIndex isJust m'
+    c <- m' V.! r
+    return (i+r, i+c)
+
+  -- doWhile xs performs the list of actions in xs until one of them returns
+  -- False
+  doWhile :: Monad m => [m Bool] -> m ()
+  doWhile = foldr f $ return () where
+    f g x = g >>= flip when x
+
+  -- Eliminate entries in the ith column, below row i.
+  -- return True if any secondary row operations were used, otherwise return
+  -- False
+  elimColumn i = do
+    m <- getM
+    opTypes <- mapM (elimCEntry i) . V.toList . V.map (i+1+)
+               . V.findIndices (0 /=) . V.map (V.! i) . V.drop (i+1) $ m
+    return $ foldr (||) False opTypes
+    -- note that this returns False if nothing at all was done, as it should
+
+  -- Eliminate the entry in row k, column i, using a row operation on rows i
+  -- and k. Uses an elementary row operation if possible, otherwise uses a
+  -- secondary row operation. Returns True if a secondary row operation was
+  -- used.
+  -- Note that we _must_ preferentially use elementary operations, otherwise we
+  -- may encounter cycles of secondary row/column operations given an unlucky
+  -- choice of gcdExpr.
+  elimCEntry i k = do
+    m <- getM
+    let a = m V.! i V.! i
+        b = m V.! k V.! i
+    case a `divides` b of
+      Just q -> addRow (-q) i k >> return False -- elementary row operation
+      Nothing -> do
+        -- secondary row operation
+        let (alpha, beta) = gcdExpr a b
+            d = alpha*a + beta*b -- d = gcd(a, b)
+            a' = fromJust $ divides d a -- so d divides a and b
+            b' = fromJust $ divides d b
+        arbRow ((alpha,beta),(-b',a')) i k
+        -- After multiplication by this matrix, m will be gcd(a, b) in position
+        -- i, j, and zero in position k, j.  Since d = αa + βb, then
+        -- 1 = αa/d + βb/d = αa' + βb', which is also the determinant of this
+        -- matrix.
+        return True
+
+  -- Eliminate entries in the ith row, right of column i.
+  -- return True if any secondary column operations were used, otherwise return
+  -- False
+  elimRow i = do
+    m <- getM
+    opTypes <- mapM (elimREntry i) . V.toList . V.map (i+1+)
+               . V.findIndices (0 /=) . V.drop (i+1) $ m V.! i
+    return $ foldr (||) False opTypes
+
+  -- Eliminate the entry in row i, column k, using a column operation on
+  -- columns i and k. Uses an elementary column operation if possible,
+  -- otherwise uses a secondary column operation. Returns True if a secondary
+  -- column operation was used.
+  elimREntry i k = do
+    m <- getM
+    let a = m V.! i V.! i
+        b = m V.! i V.! k
+    case a `divides` b of
+      Just q -> addCol (-q) i k >> return False
+      Nothing -> do
+        let (alpha, beta) = gcdExpr a b
+            d = alpha*a + beta*b
+            a' = fromJust $ divides d a
+            b' = fromJust $ divides d b
+        arbCol ((alpha,-b'),(beta,a')) i k
+        return True
+
+  -- divisorChain i assumes that the matrix is diagonal, and that the submatrix
+  -- right of column i and below row i has a divisor chain in the diagonal. It
+  -- forces the submatrix including row and column i to have a divisor chain,
+  -- and remain diagonal.
+  divisorChain i = do
+    m <- getM
+    -- if we're at the edge of the matrix, there's nothing to do
+    when (i+1 < rows m && i+1 < columns m) $ do
+      -- Assuming the 2x2 submatrix with upper-left corner at (i, i) has the
+      -- form (a 0).
+      --      (0 b)
+      addCol 1 (i+1) i 
+      -- Now it is (a 0).
+      --           (b b)
+      b <- elimCEntry i (i+1)
+      -- Now it is (a 0) if a divides b, or (gcd(a,b)    βb   ) otherwise.
+      --           (0 b)                    (   0     lcm(a,b))
+      -- In the former case, we have a divisor chain, so we are done.
+      when b $ do
+        -- Otherwise, we can eliminate βb with an elementary column operation to
+        -- obtain (gcb(a,b)    0    ).
+        --        (   0     lcm(a,b))
+        elimREntry i (i+1)
+        -- Now the (i, i) entry divides everything below it since it divides b,
+        -- but we need to fix up the remaining divisor chain.
+        divisorChain (i+1)
+        -- gcd(a,b) will still divide everything below it.
+
+-- TODO: implement determinant, full row-reduction, and inverses.
 
 test :: ((), Matrix Integer, Matrix Integer, Matrix Integer)
-test = runM f . V.fromList . map V.fromList $ [[1,2,3],[4,5,6],[7,8,9]] where
-  f = do
+test = runM f . V.fromList . map V.fromList $ [[5,0],[0,6]] where
+  f = smith 
+    {-
     addRow (-4) 0 1
     addRow (-7) 0 2
     addRow (-2) 1 2
     addCol (-2) 0 1
     addCol (-3) 0 2
     addCol (-2) 1 2
+    -}
 
 
 
@@ -231,21 +394,19 @@ test = runM f . V.fromList . map V.fromList $ [[1,2,3],[4,5,6],[7,8,9]] where
 
 -- put a m x n matrix in row-reduced echelon form
 -- Note: this doesn't work well for floats due to round-off error
-rref :: Fractional r => Matrix r -> Matrix r
+rref :: (IntegralDomain r, Fractional r) => Matrix r -> Matrix r
 rref m = rref' 0 0 m where
-  rows = V.length m
-  cols = if rows > 0 then V.length $ V.head m else 0
+  r = rows m
+  c = columns m
   -- rref' i j assumes that the matrix is already in rref above row i and to
   -- the left of column j
-  rref' i j x | i >= rows || j >= cols = x
+  rref' i j x | i >= r || j >= c = x
               | otherwise = maybe (rref' i (j+1) x)
                             (rref' (i+1) (j+1) . doRow . (i+))
                             . V.findIndex ((0 /=) . (V.! j)) . V.drop i $ x
-    where doRow k = elimOther . normalize . swap i k $ x
-          normalize y = y V.// [(i, V.map (/ (y V.! i V.! j)) $ y V.! i)]
+    where doRow k = elimOther . normalize . swapRows' i k $ x
+          normalize y = scaleRow' (1/(y V.! i V.! j)) i y
           elimOther y = V.imap f y where
             f k row | k == i = row
                     | otherwise = V.zipWith (g $ row V.! j) row $ y V.! i
             g e r1 r2 = r1 - e*r2
-  swap i j x | i == j = x
-             | otherwise = x V.// [(i, x V.! j), (j, x V.! i)]

@@ -1,6 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Matrix where
+module Matrix(IntegralDomain, isUnit, PID, Matrix, MatrixM(), runM, smith) where
 import qualified Data.Vector as V
 import Control.Monad.State
 import Data.Maybe(isJust, fromJust)
@@ -174,43 +174,121 @@ arbCol ((a,b),(c,d)) i j = pack $ do
     (m, r, c') <- get
     put (arbCol' ((a,b),(c,d)) i j m, r, arbCol' ((a,b),(c,d)) i j c')
 
+-- Assuming that the entry in position (i,j) is nonzero, elimCEntry i j k uses
+-- a row operation on rows i and k to eliminate the entry in position (k, j).
+-- It uses an elementary row operation if possible, otherwise it uses a
+-- secondary row operation. Returns True if a secondary row operation was used.
+elimCEntry i j k = do
+  m <- getM
+  let a = m V.! i V.! j
+      b = m V.! k V.! j
+  case a `divides` b of
+    Just q -> addRow (-q) i k >> return False -- elementary row operation
+    Nothing -> do
+      -- secondary row operation
+      let (alpha, beta) = gcdExpr a b
+          d = alpha*a + beta*b -- d = gcd(a, b)
+          a' = fromJust $ divides d a -- so d divides a and b
+          b' = fromJust $ divides d b
+      arbRow ((alpha,beta),(-b',a')) i k
+      -- After multiplication by this matrix, m will be gcd(a, b) in position
+      -- (i,j), and zero in position (k,j).  Since d = αa + βb, then
+      -- 1 = αa/d + βb/d = αa' + βb', which is also the determinant of this
+      -- matrix.
+      return True
+
+-- Assuming the entry in position (i,j) is nonzero, elimCol i j uses row
+-- operations to eliminate entries in column j below row i. Elementary row
+-- operations are used if possible, otherwise secondary row operations are
+-- used. Returns True if any secondary row operations were used.
+elimCol :: PID r => Int -> Int -> MatrixM r Bool
+elimCol i j = do
+  m <- getM
+  opTypes <- mapM (elimCEntry i j) . V.toList . V.map (i+1+)
+             . V.findIndices (0 /=) . V.map (V.! j) . V.drop (i+1) $ m
+  return $ foldr (||) False opTypes
+  -- note that this returns False if nothing at all was done, as it should
+
+-- Assuming that the entry in position (i,j) is nonzero, elimREntry i j k uses
+-- a column operation on columns j and k to eliminate the entry in position
+-- (i,k). It uses an elementary column operation if possible, otherwise it uses
+-- a secondary column operation. Returns True if a secondary column operation
+-- was used.
+elimREntry i j k = do
+  m <- getM
+  let a = m V.! i V.! j
+      b = m V.! i V.! k
+  case a `divides` b of
+    Just q -> addCol (-q) i k >> return False
+    Nothing -> do
+      let (alpha, beta) = gcdExpr a b
+          d = alpha*a + beta*b
+          a' = fromJust $ divides d a
+          b' = fromJust $ divides d b
+      arbCol ((alpha,-b'),(beta,a')) i k
+      return True
+
+-- Assuming the entry in position (i,j) is nonzero, elimRow i j uses column
+-- operations to eliminate entries in row i right of column j. Elementary column
+-- operations are used if possible, otherwise secondary column operations are
+-- used. Returns True if any secondary column operations were used.
+elimRow i j = do
+  m <- getM
+  opTypes <- mapM (elimREntry i j) . V.toList . V.map (j+1+)
+             . V.findIndices (0 /=) . V.drop (j+1) $ m V.! i
+  return $ foldr (||) False opTypes
+
 -- put a matrix in upper-triangular form using row operations having
 -- determinant ± 1; the Bool value is whether the determinant is positive
 semi_rref :: PID r => MatrixM r Bool
 semi_rref = s 0 0 where
   s i j = do
     m <- getM
-    let r = rows m
-        c = columns m
-    if i >= r || j >= c then return True else case findNonzeroEntry i j m of
+    if i >= rows m || j >= columns m then return True else
+      case findNonzeroEntry i j m of
         Nothing -> s i (j+1)
         Just k -> (if k == i then return id else swapRows i k >> return not)
           >>= \f -> do
           -- the above is really contorted: making the Bool part of the state
           -- might be more clear
-            elimColumn i r j
+            elimCol i j
             fmap f $ s (i+1) (j+1)
 
   -- find the first nonzero entry in column j, discounting rows above row i
   findNonzeroEntry i j = fmap (i+) . V.findIndex ((0 /=) . (V.! j)) . V.drop i
 
-  -- eliminate entries in column j and rows (i+1)..r using secondary row
-  -- operations
-  elimColumn i r j = mapM_ (elimEntry i j) [(i+1)..(r-1)]
-  elimEntry i j k = do
+-- Put a matrix in row-reduced echelon form to the extent possible.
+full_rref :: PID r => MatrixM r ()
+full_rref = do
+  semi_rref
+  m <- getM
+  f 0
+  where f i = do
+    -- find leading term
+    -- scale it to 1 if possible
+    -- eliminate entries above it if possible
+
+determinant :: PID r => MatrixM r r
+determinant = do
+  m <- getM
+  if rows m /= columns m then error "determinant: non-square matrix" else do
+    sgn <- semi_rref
+    m' <- getM
+    let d = product [ m' V.! i V.! i | i <- [0..rows m - 1]]
+    return $ if sgn then d else -d
+
+inverse :: PID r => MatrixM r (Maybe ())
+inverse = do
+  d <- determinant
+  if not $ isUnit d then return Nothing else do
+    invd 0
+    return $ Just ()
+  where d i = do
     m <- getM
-    let a = m V.! i V.! j
-        b = m V.! k V.! j
-        (alpha, beta) = gcdExpr a b
-        d = alpha*a + beta*b -- d = gcd(a, b)
-        a' = fromJust $ divides d a -- so d divides a and b
-        b' = fromJust $ divides d b
-    arbRow ((alpha,beta),(-b',a')) i k
-    -- After multiplication by this matrix, m will be gcd(a, b) in position i,
-    -- j, and zero in position k, j.
-    -- Since d = αa + βb, then 1 = αa/d + βb/d = αa' + βb', which is also the
-    -- determinant of this matrix.
-    
+    when (i < rows m) $ do
+      mapM_ (elimCEntry i i) [0..i-1]
+      d (i+1)
+
 easy_rref :: (Fractional r, IntegralDomain r) => MatrixM r ()
 easy_rref = e 0 0 where
   e i j = do
@@ -253,8 +331,8 @@ smith = s 0 where
       Just (k, j) -> do
         when (i /= k) $ swapRows i k -- put a nonzero entry in position (i, i)
         when (i /= j) $ swapCols i j
-        elimColumn i -- eliminate entries in column i, below row i
-        doWhile $ cycle [elimRow i, elimColumn i]
+        elimCol i i -- eliminate entries in column i, below row i
+        doWhile $ cycle [elimRow i i, elimCol i i]
         -- ^ do column and row operations alternately until one of them uses
         -- no secondary column/row operations; this means that row/column i was
         -- not modified by the column/row operations and hence still contains
@@ -279,69 +357,6 @@ smith = s 0 where
   doWhile = foldr f $ return () where
     f g x = g >>= flip when x
 
-  -- Eliminate entries in the ith column, below row i.
-  -- return True if any secondary row operations were used, otherwise return
-  -- False
-  elimColumn i = do
-    m <- getM
-    opTypes <- mapM (elimCEntry i) . V.toList . V.map (i+1+)
-               . V.findIndices (0 /=) . V.map (V.! i) . V.drop (i+1) $ m
-    return $ foldr (||) False opTypes
-    -- note that this returns False if nothing at all was done, as it should
-
-  -- Eliminate the entry in row k, column i, using a row operation on rows i
-  -- and k. Uses an elementary row operation if possible, otherwise uses a
-  -- secondary row operation. Returns True if a secondary row operation was
-  -- used.
-  -- Note that we _must_ preferentially use elementary operations, otherwise we
-  -- may encounter cycles of secondary row/column operations given an unlucky
-  -- choice of gcdExpr.
-  elimCEntry i k = do
-    m <- getM
-    let a = m V.! i V.! i
-        b = m V.! k V.! i
-    case a `divides` b of
-      Just q -> addRow (-q) i k >> return False -- elementary row operation
-      Nothing -> do
-        -- secondary row operation
-        let (alpha, beta) = gcdExpr a b
-            d = alpha*a + beta*b -- d = gcd(a, b)
-            a' = fromJust $ divides d a -- so d divides a and b
-            b' = fromJust $ divides d b
-        arbRow ((alpha,beta),(-b',a')) i k
-        -- After multiplication by this matrix, m will be gcd(a, b) in position
-        -- i, j, and zero in position k, j.  Since d = αa + βb, then
-        -- 1 = αa/d + βb/d = αa' + βb', which is also the determinant of this
-        -- matrix.
-        return True
-
-  -- Eliminate entries in the ith row, right of column i.
-  -- return True if any secondary column operations were used, otherwise return
-  -- False
-  elimRow i = do
-    m <- getM
-    opTypes <- mapM (elimREntry i) . V.toList . V.map (i+1+)
-               . V.findIndices (0 /=) . V.drop (i+1) $ m V.! i
-    return $ foldr (||) False opTypes
-
-  -- Eliminate the entry in row i, column k, using a column operation on
-  -- columns i and k. Uses an elementary column operation if possible,
-  -- otherwise uses a secondary column operation. Returns True if a secondary
-  -- column operation was used.
-  elimREntry i k = do
-    m <- getM
-    let a = m V.! i V.! i
-        b = m V.! i V.! k
-    case a `divides` b of
-      Just q -> addCol (-q) i k >> return False
-      Nothing -> do
-        let (alpha, beta) = gcdExpr a b
-            d = alpha*a + beta*b
-            a' = fromJust $ divides d a
-            b' = fromJust $ divides d b
-        arbCol ((alpha,-b'),(beta,a')) i k
-        return True
-
   -- divisorChain i assumes that the matrix is diagonal, and that the submatrix
   -- right of column i and below row i has a divisor chain in the diagonal. It
   -- forces the submatrix including row and column i to have a divisor chain,
@@ -356,7 +371,7 @@ smith = s 0 where
       addCol 1 (i+1) i 
       -- Now it is (a 0).
       --           (b b)
-      b <- elimCEntry i (i+1)
+      b <- elimCEntry i i (i+1)
       -- Now it is (a 0) if a divides b, or (gcd(a,b)    βb   ) otherwise.
       --           (0 b)                    (   0     lcm(a,b))
       -- In the former case, we have a divisor chain, so we are done.
@@ -364,7 +379,7 @@ smith = s 0 where
         -- Otherwise, we can eliminate βb with an elementary column operation to
         -- obtain (gcb(a,b)    0    ).
         --        (   0     lcm(a,b))
-        elimREntry i (i+1)
+        elimREntry i i (i+1)
         -- Now the (i, i) entry divides everything below it since it divides b,
         -- but we need to fix up the remaining divisor chain.
         divisorChain (i+1)
@@ -372,9 +387,8 @@ smith = s 0 where
 
 -- TODO: implement determinant, full row-reduction, and inverses.
 
-test :: ((), Matrix Integer, Matrix Integer, Matrix Integer)
-test = runM f . V.fromList . map V.fromList $ [[5,0],[0,6]] where
-  f = smith 
+test :: MatrixM Integer a -> [[Integer]] -> (a, Matrix Integer, Matrix Integer, Matrix Integer)
+test f = runM f . V.fromList . map V.fromList
     {-
     addRow (-4) 0 1
     addRow (-7) 0 2

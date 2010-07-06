@@ -1,3 +1,3 @@
 make a Ring typeclass...Num is just too dumb; remove Show where unnecessary
-spectral sequence!
 TensorAlgebra is really a free algebra, not the tensor algebra of a given module
+use ST/State monad to fix a spectrum and then do operations on it interactively

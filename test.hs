@@ -1,61 +1,61 @@
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
 import FreeModule
-import TensorAlgebra
-import SymmetricAlgebra
-import ExteriorAlgebra
 import Z2
-import qualified Restricted as R
-import Basis
 import Steenrod
-import KZ2
 import Natural
 import Grading
 import qualified Data.Set as S
 import DyerLashof
 import Suspension
 import Sequence
+import Data.List(genericReplicate)
 
-data Basis = A | B deriving (Eq, Ord, Show)
+-- If X' represents the cohomology of a spectrum X, and x::X', then sseqEntry x
+-- i j is a basis for E_1^{i,j}(\Omega^\infty X). The dummy argument x is not
+-- used, but accomplishes typeclass selection.
+sseqEntry :: (Ord b, Graded b) => FreeModule Z2 b -> Integer -> Integer
+  -> [UBasis (FreeDyerLashof b)]
+sseqEntry _ i j = S.toList . bigrading $ (-i, i+j)
 
-type ZCoef = FreeModule Integer Basis
-type Z2Coef = FreeModule Z2 Basis
+-- If X' represents the cohomology of a spectrum X, and x::X', then
+-- sseqTable x l r b t makes a LaTeX document containing a table with columns
+-- l..r, rows b..t, and whose (i,j) entry is a basis for
+-- E_1^{i,j}(\Omega^\infty X). The dummy argument x is not used, but
+-- accomplishes typeclass selection.
+sseqTable :: (Ord b, Graded b, Show b) => FreeModule Z2 b -> Integer -> Integer
+  -> Integer -> Integer -> String
+sseqTable x l r b t = header ++ rows ++ footer where
+  header = 
+       "\\documentclass[10pt]{article}\n"
+    ++ "\\begin{document}\n"
+    ++ "\\begin{tabular}{l|" ++ (concat $ genericReplicate (r-l+1) "l|") ++ "}\n"
+    ++ concatMap ((" & " ++) . show) [l..r] ++ "\\\\\\hline\n"
+  rows = concatMap row $ reverse [b..t]
+  row i = show i ++ concatMap ((" & " ++) . entry i) [l..r]
+    ++ "\\\\\\hline\n"
+  entry i j = entry_header ++ entries ++ entry_footer where
+    entry_header = "$\\begin{array}{@{}l@{}}\n"
+    entries = concatMap ((++ " \\\\\n") . show) $ sseqEntry x j i
+    -- note that sseqEntry expects (column, row), while (i, j) is (row, column)
+    entry_footer = "\\end{array}$\n"
+  footer = 
+       "\\end{tabular}\n"
+    ++ "\\end{document}\n"
 
-a = R.return A
-a' = injectB A
-b = R.return B
-b' = injectB B
+stuff :: String -> String
+stuff = concatMap (s . words) . lines where
+  dummy :: Nat n => n -> Suspend n Steenrod
+  dummy _ = undefined
+  s ["table", n, l, r, b, t] = useNatural f (read n) where
+    f m = sseqTable (dummy m) (read l) (read r) (read b) (read t)
+  s ["d", n, r, column, row] = useNatural f (read n) where
+    f m = concat [ show x ++ " -> " ++ show (differential (read r) x) ++ "\n"
+                   | x <- map inject $
+                   sseqEntry (dummy m) (read column) (read row) ]
+  s _ =
+       "commands:\n"
+    ++ "  table n l r b t: output a LaTeX document containing a table of the\n"
+    ++ "  basis elements of E_1^{p, q}(\\Omega^\\infty \\Sigma^n HZ/2) for\n"
+    ++ "  l <= p <= r and b <= q <= t\n\n"
+    ++ "  d n r p q: compute d_{2^r}(E_1^{p,q}(\\Omega^\\infty \\Sigma^n HZ/2)\n"
 
-i = include . include $ 1 :: DyerLashof Steenrod
-
-type Foo = DyerLashof Z2Coef
-
-stuff :: Integer -> String -> String
-stuff n = useNatural f n where
-  f m = unlines . map (show . foldr sq (iota m) . map read . words) . lines
-
-main = do
-{-
-  print (a .+. b .+. a :: ZCoef)
-  print (a .+. b .+. a :: Z2Coef)
-  print (a' + 3 * b' * (a' + b') :: TensorAlgebra ZCoef)
-  print (a' + 3 * b' * (a' + b') :: TensorAlgebra Z2Coef)
-  print (a' + 3 * b' * (a' + b') :: SymmetricAlgebra ZCoef)
-  print (a' + 3 * b' * (a' + b') :: SymmetricAlgebra Z2Coef)
-  print (a' + 3 * b' * (a' + b') :: ExteriorAlgebra ZCoef)
-  print (a' + 3 * b' * (a' + b') :: ExteriorAlgebra Z2Coef)
-  print (grading 9 :: S.Set (UBasis Steenrod))
-  print $ sq 2 ((iota d6)^3)
-  print $ sq_ (-16) ((iota d6)^3)
-
-  print (bigrading (4, 6) :: S.Set (UBasis (DyerLashof (Suspend D1 Steenrod))))
-  print $ q 0 (sq 3 i + sq 2 i + i*sq 4 i)
--}
-  putStr $ concat [ show x ++ " & " ++ show (differential 1 x) ++ "\\\\\n" | x <- map inject . S.toList $ bigrading (4, 9) :: [DyerLashof (Suspend D1 Steenrod)] ]
-
-{-
-  l <- getLine
-  let n = head . map read . words $ l
-  interact (stuff n)
--}
+main = interact stuff

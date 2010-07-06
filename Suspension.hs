@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module Suspension(Suspend) where
+module Suspension(Suspend, suspend) where
 import Grading
 import Natural
 import FreeModule
@@ -31,7 +31,11 @@ instance (Ord b, Graded b, Nat n) => Graded (Basis n b) where
   grading = S.map pack . grading . (subtract n') :: Integer -> S.Set (Basis n b)
     where n' = toNum (undefined :: n)
 
-type Suspend n m = FreeModule (URing m) (Basis n (UBasis m))
+type SuspendBasis n r b = FreeModule r (Basis n b)
+type Suspend n m = SuspendBasis n (URing m) (UBasis m)
 
 instance (Ord b, AModule b) => AModule (Basis n b) where
   sq' m = include . sq' m . unpack
+
+suspend :: (Nat n, Num r, Ord b) => n -> FreeModule r b -> SuspendBasis n r b
+suspend _ = include

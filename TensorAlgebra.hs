@@ -86,7 +86,7 @@ freeTA :: (Module r m, Num m) => (b -> m) -> FreeTensorAlgebra r b -> m
 freeTA f = freeM (product . map f . unpack)
 
 -- More general version of diag, useful for DyerLashof
-diag' :: (Ord (f b), Show (f b), Multiplicative Z2 (f b), R.MonadR f b) =>
+diag' :: (Ord (f b), Show (f b), Multiplicative Z2 (f b)) =>
   (Integer -> b -> FreeModule Z2 (f b)) -> Integer -> [b] -> FreeModule Z2 (f b)
 diag' s n [] | n == 0 = 1
              | otherwise = 0 -- Sq^n 1 = 0 if n /= 0

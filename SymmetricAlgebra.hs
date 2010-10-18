@@ -1,8 +1,11 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverlappingInstances #-}
+-- dirty hack for KZ2; it should use a newtype instead
 
-module SymmetricAlgebra(module Basis, FreeSymmetricAlgebra, SymmetricAlgebra)
+module SymmetricAlgebra(module Basis, Basis(), FreeSymmetricAlgebra,
+  SymmetricAlgebra)
 where
 import FreeModuleBase
 import Algebra
@@ -28,8 +31,6 @@ pack = Basis
 unpack = unBasis
 lift f = pack . f . unpack
 lift2 f x y = pack $ f (unpack x) (unpack y)
-
-type SymmetricAlgebraBasis b = Basis b
 
 instance ViewBasis (Basis b) [b] where
   viewBasis = concatMap (uncurry $ flip genericReplicate) . M.toList . unpack

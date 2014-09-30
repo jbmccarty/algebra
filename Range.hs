@@ -1,5 +1,5 @@
-module Range(module Ratio, Endpoint(..), range) where
-import Ratio(Rational, (%))
+module Range(module Data.Ratio, Endpoint(..), range) where
+import Data.Ratio(Rational, (%))
 
 data Endpoint = Inc Rational | Exc Rational
 

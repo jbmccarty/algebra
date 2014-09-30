@@ -1,9 +1,11 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE
+  RankNTypes
+  #-}
+module Natural(module GHC.TypeLits, module Data.Proxy, useNatural) where
+import GHC.TypeLits
+import Data.Proxy
 
-module Natural(Nat, toNum, D0, D1, D2, D3, D4, D5, D6, D7, D8, D9,
-  d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, (:*)(..), useNatural)
-where
-import Data.TypeLevel
-
-useNatural :: (forall n. Nat n => n -> a) -> Integer -> a
-useNatural f n = reifyIntegral n f
+useNatural :: (forall n . KnownNat n => Proxy n -> a) -> Integer -> a
+useNatural f n = case someNatVal n of
+  Just (SomeNat p) -> f p
+  Nothing -> error $ "useNatural: " ++ show n ++ " is not a natural number"

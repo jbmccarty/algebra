@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 import FreeModule
 import Z2
 import Steenrod
@@ -12,7 +13,7 @@ import Data.List(genericReplicate)
 -- If X' represents the cohomology of a spectrum X, and x::X', then sseqEntry x
 -- i j is a basis for E_1^{i,j}(\Omega^\infty X). The dummy argument x is not
 -- used, but accomplishes typeclass selection.
-sseqEntry :: (Ord b, Graded b) => FreeModule Z2 b -> Integer -> Integer
+sseqEntry :: (Ord b, Graded b) => Proxy b -> Integer -> Integer
   -> [UBasis (FreeDyerLashof b)]
 sseqEntry _ i j = S.toList . bigrading $ (-i, i+j)
 
@@ -21,9 +22,9 @@ sseqEntry _ i j = S.toList . bigrading $ (-i, i+j)
 -- l..r, rows b..t, and whose (i,j) entry is a basis for
 -- E_1^{i,j}(\Omega^\infty X). The dummy argument x is not used, but
 -- accomplishes typeclass selection.
-sseqTable :: (Ord b, Graded b, Show b) => FreeModule Z2 b -> Integer -> Integer
+sseqTable :: (Ord b, Graded b, Show b) => Proxy b -> Integer -> Integer
   -> Integer -> Integer -> String
-sseqTable x l r b t = header ++ rows ++ footer where
+sseqTable p l r b t = header ++ rows ++ footer where
   header = 
        "\\documentclass[10pt]{article}\n"
     ++ "\\begin{document}\n"
@@ -34,7 +35,7 @@ sseqTable x l r b t = header ++ rows ++ footer where
     ++ "\\\\\\hline\n"
   entry i j = entry_header ++ entries ++ entry_footer where
     entry_header = "$\\begin{array}{@{}l@{}}\n"
-    entries = concatMap ((++ " \\\\\n") . show) $ sseqEntry x j i
+    entries = concatMap ((++ " \\\\\n") . show) $ (sseqEntry p j i)
     -- note that sseqEntry expects (column, row), while (i, j) is (row, column)
     entry_footer = "\\end{array}$\n"
   footer = 
@@ -43,14 +44,13 @@ sseqTable x l r b t = header ++ rows ++ footer where
 
 stuff :: String -> String
 stuff = concatMap (s . words) . lines where
-  dummy :: Nat n => n -> Suspend n Steenrod
-  dummy _ = undefined
+  p (_ :: Proxy n) = Proxy :: Proxy (UBasis (Suspend n Steenrod))
   s ["table", n, l, r, b, t] = useNatural f (read n) where
-    f m = sseqTable (dummy m) (read l) (read r) (read b) (read t)
+    f m = sseqTable (p m) (read l) (read r) (read b) (read t)
   s ["d", n, r, column, row] = useNatural f (read n) where
     f m = concat [ show x ++ " -> " ++ show (differential (read r) x) ++ "\n"
                    | x <- map inject $
-                   sseqEntry (dummy m) (read column) (read row) ]
+                   sseqEntry (p m) (read column) (read row) ]
   s _ =
        "commands:\n"
     ++ "  table n l r b t: output a LaTeX document containing a table of the\n"

@@ -16,12 +16,12 @@ class Multiplicative r b where
 -- but I think this is easier to program with
 
 -- need to use scoped type variables to make ghc resolve the right class
-fromInteger' :: forall r b. (Num r, Ord b, Multiplicative r b) =>
+fromInteger' :: forall r b. (Eq r, Num r, Ord b, Multiplicative r b) =>
   Integer -> FreeModule r b
 fromInteger' n = (fromInteger n :: r) .* returnList one
 
 -- the ring structure induced by multiplication on the basis
-instance (Num r, Show b, Ord b, Multiplicative r b) => Num (FreeModule r b)
+instance (Eq r, Num r, Show b, Ord b, Multiplicative r b) => Num (FreeModule r b)
   where
   (+) = (.+.)
   negate = negateA

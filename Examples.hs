@@ -2,9 +2,11 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
 import FreeModule
 import TensorAlgebra
-import SymmetricAlgebra
+import SymmetricAlgebra hiding (Basis)
 import ExteriorAlgebra
 import Z2
 import qualified Restricted as R
@@ -34,8 +36,8 @@ i = include . include $ 1 :: DyerLashof Steenrod
 type Foo = DyerLashof Z2Coef
 
 stuff :: Integer -> String -> String
-stuff n = useNatural f n where
-  f m = unlines . map (show . foldr sq (iota m) . map read . words) . lines
+stuff = useNatural f where
+  f (_ :: Proxy n') = unlines . map (show . foldr sq (iota :: KZ2 n') . map read . words) . lines
 
 main = do
   print (a .+. b .+. a :: ZCoef)
@@ -47,12 +49,12 @@ main = do
   print (a' + 3 * b' * (a' + b') :: ExteriorAlgebra ZCoef)
   print (a' + 3 * b' * (a' + b') :: ExteriorAlgebra Z2Coef)
   print (grading 9 :: S.Set (UBasis Steenrod))
-  print $ sq 2 ((iota d6)^3)
-  print $ sq_ (-16) ((iota d6)^3)
+  print $ sq 2 ((iota :: KZ2 6)^3)
+  print $ sq_ (-16) ((iota :: KZ2 6)^3)
 
-  print (bigrading (4, 6) :: S.Set (UBasis (DyerLashof (Suspend D1 Steenrod))))
+  print (bigrading (4, 6) :: S.Set (UBasis (DyerLashof (Suspend 1 Steenrod))))
   print $ q 0 (sq 3 i + sq 2 i + i*sq 4 i)
-  putStr $ concat [ show x ++ " & " ++ show (differential 1 x) ++ "\\\\\n" | x <- map inject . S.toList $ bigrading (4, 9) :: [DyerLashof (Suspend D1 Steenrod)] ]
+  putStr $ concat [ show x ++ " & " ++ show (differential 1 x) ++ "\\\\\n" | x <- map inject . S.toList $ bigrading (4, 9) :: [DyerLashof (Suspend 1 Steenrod)] ]
 
   l <- getLine
   let n = head . map read . words $ l
